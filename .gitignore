@@ -1,3 +1,6 @@
 *.o
 *.a
 *.pyc
+
+*lights/rpi_ws281x/test
+*lights/test
