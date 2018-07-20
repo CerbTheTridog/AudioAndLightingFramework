@@ -1,6 +1,11 @@
+# Do not add object files or compiled files to github
 *.o
 *.a
 *.pyc
 
+# These are some other compiled files
 *lights/rpi_ws281x/test
 *lights/test
+
+# Ignore the scons database
+*.sconsign.dblite
