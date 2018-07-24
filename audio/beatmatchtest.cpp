@@ -13,12 +13,13 @@ static bool running = true;
 BeatMatchEvent *bme;
 
 //LED String Info
+/*
 #define TARGET_FREQ             WS2811_TARGET_FREQ
 #define GPIO_PIN                18
 #define DMA                     10
 #define STRIP_TYPE              WS2811_STRIP_GRB		// WS2812/SK6812RGB
+*/
 #define LED_COUNT				300
-
 
 static ws2811_t ledstring;
 static struct pattern *pattern;
@@ -40,13 +41,16 @@ int main()
 	
 	log_set_level(LOG_TRACE);
 	
-	ledstring.freq = TARGET_FREQ;
+	/*ledstring.freq = TARGET_FREQ;
 	ledstring.dmanum = DMA;
 	ledstring.channel[0].gpionum = GPIO_PIN;
 	ledstring.channel[0].count = LED_COUNT;
 	ledstring.channel[0].invert = 0;
 	ledstring.channel[0].brightness = 100;
-	ledstring.channel[0].strip_type = STRIP_TYPE;
+	ledstring.channel[0].strip_type = STRIP_TYPE;*/
+	
+	ledstring = get_ledstring_single(LED_COUNT);
+	ledstring.channel[0].brightness = 100;
 	
 	ws2811_return_t ret;
 	
