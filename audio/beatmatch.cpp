@@ -3,9 +3,9 @@
 #include <string.h>
 #include <math.h>
 #include <signal.h>
-#include "lib/libfft.h"
-#include <portaudio.h>
 #include <pthread.h>
+#include "lib/libfft.h"
+#include "lib/portaudio.h"
 #include "beatmatch.h"
 
 BeatMatch::BeatMatch(int sample_rate, int fft_size, int fft_exp) 
@@ -43,9 +43,9 @@ BeatMatch::BeatMatch(int sample_rate, int fft_size, int fft_exp)
             throw "Could not allocate memory for freqTable.";
     }*/
 
-    buildHanWindow( window, fft_size );
+    buildHanWindow( );
     fft = initfft( fft_exp );
-    computeSecondOrderLowPassParameters( sample_rate, 330, a, b );
+    computeSecondOrderLowPassParameters( sample_rate, 330 );
     mem1[0] = 0; mem1[1] = 0; mem1[2] = 0; mem1[3] = 0;
     mem2[0] = 0; mem2[1] = 0; mem2[2] = 0; mem2[3] = 0;
 
@@ -56,7 +56,7 @@ BeatMatch::BeatMatch(int sample_rate, int fft_size, int fft_exp)
     running = false;
 }
 
-bool BeatMatch::StartThread(void (*cb)(float *, int)) 
+bool BeatMatch::StartThread() 
 {
     int ret = 0;
 
@@ -109,10 +109,7 @@ bool BeatMatch::StartThread(void (*cb)(float *, int))
     {
         throw "Pa_StartStream threw error " + err;
     }
-    
-    FreqCallback = cb;
-    //callBackMutex = mutex;
-    
+      
     running = true;
 
     ret = pthread_create(&thread_id, NULL, InternalThread, this);
@@ -136,23 +133,25 @@ bool BeatMatch::StopThread()
 
 void *BeatMatch::InternalThread(void *This)
 {
+	//Implement this baby in a derived class.
     ((BeatMatch *)This)->EventThread(); 
     return NULL;
 }
 
 //Copyright (C) 2012 by Bjorn Roche
-void BeatMatch::buildHanWindow( float *window, int size )
+void BeatMatch::buildHanWindow( )
 {
-   for( int i=0; i<size; ++i )
-      window[i] = .5 * ( 1 - cos( 2 * M_PI * i / (size-1.0) ) );
+   for( int i=0; i < FFTSize; ++i )
+      window[i] = .5 * ( 1 - cos( 2 * M_PI * i / (FFTSize-1.0) ) );
 }
 
-void BeatMatch::applyWindow( float *window, float *data, int size )
+void BeatMatch::applyWindow( float *data )
 {
-   for( int i=0; i<size; ++i )
+   for( int i = 0; i < FFTSize; ++i )
       data[i] *= window[i] ;
 }
-void BeatMatch::computeSecondOrderLowPassParameters( float srate, float f, float *a, float *b )
+
+void BeatMatch::computeSecondOrderLowPassParameters( float srate, float f )
 {
    float a0;
    float w0 = 2 * M_PI * f/srate;
@@ -168,7 +167,8 @@ void BeatMatch::computeSecondOrderLowPassParameters( float srate, float f, float
    b[1] = ( 1-cosw0) / a0;
    b[2] = b[0];
 }
-float BeatMatch::processSecondOrderFilter( float x, float *mem, float *a, float *b )
+
+float BeatMatch::processSecondOrderFilter( float x, float *mem )
 {
     float ret = b[0] * x + b[1] * mem[0] + b[2] * mem[1]
                          - a[0] * mem[2] - a[1] * mem[3] ;
