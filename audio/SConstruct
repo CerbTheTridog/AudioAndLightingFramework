@@ -3,19 +3,19 @@ debug = ARGUMENTS.get('debug', 0)
 if int(debug):
 	env.Append(CCFLAGS = '-g')
 
-env.Library('libfft', ['lib/libfft.c'])
+env.Library('./lib/libfft', ['lib/libfft.c'])
 
 env.Library(
 	'libbeatmatch', 
 	['beatmatch.cpp', 'beatmatchevent.cpp'], 
-	LIBS = ['libasound', 'libportaudio', 'libm', 'libfft'], 
-	LIBPATH = ['/usr/local/lib', '.'],
+	LIBS = ['libasound', 'libm', 'libportaudio', 'libfft'], 
+	LIBPATH = ['./lib', '.'],
 	LINKFLAGS = ["-lpthread"]
 )
 
 env.Program(
 	'beatmatchtest.cpp', 
-	LIBS=['libasound', 'libportaudio', 'libm', 'libbeatmatch', 'libfft'], 
-	LIBPATH=['/usr/local/lib', '.'], 
+	LIBS=['libasound', 'libm', 'libbeatmatch', 'libportaudio', 'libfft', 'liblights', 'libws2811'], 
+	LIBPATH=['./lib', '.', '../lights', '../lights/rpi_ws281x' ], 
 	LINKFLAGS=["-lpthread"]
 )

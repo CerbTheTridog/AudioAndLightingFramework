@@ -1,23 +1,22 @@
 #include <pthread.h>
-#include <portaudio.h>
+#include "lib/portaudio.h"
 
 class BeatMatch 
 {
-        //float *freqTable;
         pthread_t thread_id;
         static void *InternalThread(void*);
+		float a[2], b[3];
     public:
         BeatMatch(int, int, int);
         virtual ~BeatMatch() {};
-        bool StartThread(void (*)(float *, int));
+        bool StartThread();
         bool StopThread();
     protected:
-        //pthread_mutex_t callBackMutex;
-        void buildHanWindow( float*, int );
-        void applyWindow( float*, float*, int );
-        void computeSecondOrderLowPassParameters( float, float, float*, float* );
-        float processSecondOrderFilter( float, float*, float*, float* );
-        float a[2], b[3], mem1[4], mem2[4];
+        void buildHanWindow(  );
+        void applyWindow( float* );
+        void computeSecondOrderLowPassParameters( float, float );
+        float processSecondOrderFilter( float, float* );
+		//Implement this method to do whatever you want with the audio info.
         virtual void EventThread() = 0;
         bool running;
         PaStream *stream;
@@ -31,5 +30,5 @@ class BeatMatch
         float *datai;
         void *fft;
         float *window;
-        void (*FreqCallback)(float *, int);
+		float mem1[4], mem2[4];
 };
