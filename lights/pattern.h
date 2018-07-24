@@ -27,7 +27,7 @@ get_ledstring_single(uint32_t led_count)
     ledstring.channel[0].invert = 0;
     ledstring.channel[0].brightness = 255;
     ledstring.channel[0].strip_type = STRIP_TYPE;
-    ledstring.channel[1].gpionum = GPIO_PIN_ONE;
+    ledstring.channel[1].gpionum = 0;
     ledstring.channel[1].count = 0;
     ledstring.channel[1].invert = 0;
     ledstring.channel[1].brightness = 255;
