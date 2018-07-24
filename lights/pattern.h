@@ -7,6 +7,75 @@ extern "C" {
 
 #include <stdbool.h>
 #include <pthread.h>
+#include "rpi_ws281x/ws2811.h"
+// defaults for cmdline options
+#define TARGET_FREQ             WS2811_TARGET_FREQ
+#define GPIO_PIN_ONE            18
+#define GPIO_PIN_TWO            12
+#define DMA                     10
+#define STRIP_TYPE              WS2811_STRIP_GRB		// WS2812/SK6812RGB integrated chip+leds
+
+static inline ws2811_t
+get_ledstring_single(uint32_t led_count)
+{
+    
+    ws2811_t ledstring_single =
+    {   
+        .freq = TARGET_FREQ,
+        .dmanum = DMA,
+        .channel =
+        {
+            [0] =
+            {
+                .gpionum = GPIO_PIN_ONE,
+                .count = 0,
+                .invert = 0,
+                .brightness = 255,
+                .strip_type = STRIP_TYPE,
+            },
+            [1] =
+            {
+                .gpionum = 0,
+                .count = 0,
+                .invert = 0,
+                .brightness = 0,
+            },
+        },
+    };
+    ledstring_single.channel[0].count = led_count;
+    return ledstring_single;
+}
+
+static inline ws2811_t
+get_ledstring_double(uint32_t ch1_led_count, uint32_t ch2_led_count)
+{
+
+    ws2811_t ledstring_double =
+    {
+        .freq = TARGET_FREQ,
+        .dmanum = DMA,
+        .channel =
+        {
+            [0] =
+            {
+                .gpionum = GPIO_PIN_ONE,
+                .count = ch1_led_count,
+                .invert = 0,
+                .brightness = 255,
+                .strip_type = STRIP_TYPE,
+            },
+            [1] =
+            {
+                .gpionum = GPIO_PIN_TWO,
+                .count = ch2_led_count,
+                .invert = 0,
+                .brightness = 255,
+                .strip_type = STRIP_TYPE,
+            },
+        },
+    };
+    return ledstring_double;
+}
 
 #define COLOR_RED         0x00FF0000
 #define COLOR_ORANGE      0x00FF8000

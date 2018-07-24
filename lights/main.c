@@ -76,14 +76,14 @@ static char VERSION[] = "0.0.6";
 #define ARRAY_SIZE(stuff)       (sizeof(stuff) / sizeof(stuff[0]))
 
 // defaults for cmdline options
-#define TARGET_FREQ             WS2811_TARGET_FREQ
-#define GPIO_PIN_ONE            18
-#define GPIO_PIN_TWO            12
-#define DMA                     10
-#define STRIP_TYPE              WS2811_STRIP_GRB		// WS2812/SK6812RGB integrated chip+leds
+//#define TARGET_FREQ             WS2811_TARGET_FREQ
+//#define GPIO_PIN_ONE            18
+//#define GPIO_PIN_TWO            12
+//#define DMA                     10
+//#define STRIP_TYPE              WS2811_STRIP_GRB		// WS2812/SK6812RGB integrated chip+leds
 #define SLEEP                   .5
 
-#define LED_COUNT               150
+#define LED_COUNT               750
 #define MOVEMENT_RATE           100
 #define PULSE_WIDTH             10
 
@@ -95,7 +95,7 @@ static bool maintain_colors = false;
 static uint32_t pulse_width = PULSE_WIDTH;
 int program = 0;
 static uint32_t sleep_rate = SLEEP * 1000000;
-
+#if 0
 ws2811_t ledstring_single =
 {
     .freq = TARGET_FREQ,
@@ -144,7 +144,7 @@ ws2811_t ledstring_double =
         },
     },
 };
-
+#endif
 
 uint8_t running = 1;
 
@@ -271,9 +271,9 @@ int main(int argc, char *argv[])
     /* Handlers should only be caught in this file. And commands propogate down */
     setup_handlers();
  
-
     /* Which pattern to do? */
     if (program == 0) {
+        ws2811_t ledstring_single = get_ledstring_single(LED_COUNT);
         if ((ret = ws2811_init(&ledstring_single)) != WS2811_SUCCESS) {
             log_fatal("ws2811_init failed: %s", ws2811_get_return_t_str(ret));
             return ret;
@@ -287,6 +287,7 @@ int main(int argc, char *argv[])
         pattern->ledstring = ledstring_single;
     }
     else if (program == 1) {
+        ws2811_t ledstring_single = get_ledstring_single(LED_COUNT);
         if ((ret = ws2811_init(&ledstring_single)) != WS2811_SUCCESS) {
             log_fatal("ws2811_init failed: %s", ws2811_get_return_t_str(ret));
             return ret;
@@ -302,8 +303,8 @@ int main(int argc, char *argv[])
         pattern->pulseWidth = pulse_width;
     }
     else if (program == 2) {
-        if ((ret = ws2811_init(&ledstring_single)) != WS2811_SUCCESS) {
-        //if ((ret = ws2811_init(&ledstring_double)) != WS2811_SUCCESS) {
+        ws2811_t ledstring_double = get_ledstring_double(LED_COUNT, LED_COUNT);
+        if ((ret = ws2811_init(&ledstring_double)) != WS2811_SUCCESS) {
             log_fatal("ws2811_init failed: %s", ws2811_get_return_t_str(ret));
             return ret;
         }
@@ -314,8 +315,7 @@ int main(int argc, char *argv[])
         }
 
         /* Custom program settings */
-        //pattern->ledstring = ledstring_double;
-        pattern->ledstring = ledstring_single; 
+        pattern->ledstring = ledstring_double;
         pattern->pulseWidth = pulse_width;
     }
 
