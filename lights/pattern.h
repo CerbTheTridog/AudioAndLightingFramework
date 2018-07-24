@@ -19,61 +19,39 @@ static inline ws2811_t
 get_ledstring_single(uint32_t led_count)
 {
     
-    ws2811_t ledstring_single =
-    {   
-        .freq = TARGET_FREQ,
-        .dmanum = DMA,
-        .channel =
-        {
-            [0] =
-            {
-                .gpionum = GPIO_PIN_ONE,
-                .count = 0,
-                .invert = 0,
-                .brightness = 255,
-                .strip_type = STRIP_TYPE,
-            },
-            [1] =
-            {
-                .gpionum = 0,
-                .count = 0,
-                .invert = 0,
-                .brightness = 0,
-            },
-        },
-    };
-    ledstring_single.channel[0].count = led_count;
-    return ledstring_single;
+    ws2811_t ledstring;
+    ledstring.freq = TARGET_FREQ;
+    ledstring.dmanum = DMA;
+    ledstring.channel[0].gpionum = GPIO_PIN_ONE;
+    ledstring.channel[0].count = led_count;
+    ledstring.channel[0].invert = 0;
+    ledstring.channel[0].brightness = 255;
+    ledstring.channel[0].strip_type = STRIP_TYPE;
+    ledstring.channel[1].gpionum = GPIO_PIN_ONE;
+    ledstring.channel[1].count = 0;
+    ledstring.channel[1].invert = 0;
+    ledstring.channel[1].brightness = 255;
+    ledstring.channel[1].strip_type = STRIP_TYPE;
+    return ledstring;
 }
 
 static inline ws2811_t
 get_ledstring_double(uint32_t ch1_led_count, uint32_t ch2_led_count)
 {
 
-    ws2811_t ledstring_double =
-    {
-        .freq = TARGET_FREQ,
-        .dmanum = DMA,
-        .channel =
-        {
-            [0] =
-            {
-                .gpionum = GPIO_PIN_ONE,
-                .count = ch1_led_count,
-                .invert = 0,
-                .brightness = 255,
-                .strip_type = STRIP_TYPE,
-            },
-            [1] =
-            {
-                .gpionum = GPIO_PIN_TWO,
-                .count = ch2_led_count,
-                .invert = 0,
-                .brightness = 255,
-                .strip_type = STRIP_TYPE,
-            },
-        },
-    };
+    ws2811_t ledstring_double;
+    ledstring_double.freq = TARGET_FREQ;
+    ledstring_double.dmanum = DMA;
+    ledstring_double.channel[0].gpionum = GPIO_PIN_ONE;
+    ledstring_double.channel[0].count = ch1_led_count;
+    ledstring_double.channel[0].invert = 0;
+    ledstring_double.channel[0].brightness = 255;
+    ledstring_double.channel[0].strip_type = STRIP_TYPE;
+    ledstring_double.channel[1].gpionum = GPIO_PIN_ONE;
+    ledstring_double.channel[1].count = ch2_led_count;
+    ledstring_double.channel[1].invert = 0;
+    ledstring_double.channel[1].brightness = 255;
+    ledstring_double.channel[1].strip_type = STRIP_TYPE;
     return ledstring_double;
 }
 
