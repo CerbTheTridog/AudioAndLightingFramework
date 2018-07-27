@@ -75,19 +75,11 @@ static char VERSION[] = "0.0.6";
 
 #define ARRAY_SIZE(stuff)       (sizeof(stuff) / sizeof(stuff[0]))
 
-// defaults for cmdline options
-//#define TARGET_FREQ             WS2811_TARGET_FREQ
-//#define GPIO_PIN_ONE            18
-//#define GPIO_PIN_TWO            12
-//#define DMA                     10
-//#define STRIP_TYPE              WS2811_STRIP_GRB		// WS2812/SK6812RGB integrated chip+leds
 #define SLEEP                   .5
-
 #define LED_COUNT               750
 #define MOVEMENT_RATE           100
 #define PULSE_WIDTH             10
 
-static int led_count = LED_COUNT;
 static int clear_on_exit = 0;
 static struct pattern *pattern;
 static double movement_rate = MOVEMENT_RATE;
@@ -95,57 +87,6 @@ static bool maintain_colors = false;
 static uint32_t pulse_width = PULSE_WIDTH;
 int program = 0;
 static uint32_t sleep_rate = SLEEP * 1000000;
-#if 0
-ws2811_t ledstring_single =
-{
-    .freq = TARGET_FREQ,
-    .dmanum = DMA,
-    .channel =
-    {
-        [0] =
-        {
-            .gpionum = GPIO_PIN_ONE,
-            .count = LED_COUNT,
-            .invert = 0,
-            .brightness = 255,
-            .strip_type = STRIP_TYPE,
-        },
-        [1] =
-        {
-            .gpionum = 0,
-            .count = 0,
-            .invert = 0,
-            .brightness = 0,
-        },
-    },
-};
-
-ws2811_t ledstring_double =
-{
-    .freq = TARGET_FREQ,
-    .dmanum = DMA,
-    .channel =
-    {
-        [0] =
-        {
-            .gpionum = GPIO_PIN_ONE,
-            .count = LED_COUNT,
-            .invert = 0,
-            .brightness = 255,
-            .strip_type = STRIP_TYPE,
-        },
-        [1] =
-        {
-            .gpionum = GPIO_PIN_TWO,
-            .count = LED_COUNT,
-            .invert = 0,
-            .brightness = 255,
-            .strip_type = STRIP_TYPE,
-        },
-    },
-};
-#endif
-
 uint8_t running = 1;
 
 static void ctrl_c_handler(int signum)
@@ -270,56 +211,45 @@ int main(int argc, char *argv[])
     parseargs(argc, argv);
     /* Handlers should only be caught in this file. And commands propogate down */
     setup_handlers();
- 
+    pattern = create_pattern();
+
     /* Which pattern to do? */
     if (program == 0) {
-        ws2811_t ledstring_single = get_ledstring_single(LED_COUNT);
-        if ((ret = ws2811_init(&ledstring_single)) != WS2811_SUCCESS) {
-            log_fatal("ws2811_init failed: %s", ws2811_get_return_t_str(ret));
+        if ((ret = configure_ledstring_single(pattern, LED_COUNT)) != WS2811_SUCCESS) {
+            log_fatal("Bad stuff");
             return ret;
         }
-        if((ret = rainbow_create(&pattern)) != WS2811_SUCCESS) {
+        if((ret = rainbow_create(pattern)) != WS2811_SUCCESS) {
             log_fatal("rainbox_create failed: %s", ws2811_get_return_t_str(ret));
             return ret;
         }
-
-        /* Custom program settings */
-        pattern->ledstring = ledstring_single;
     }
     else if (program == 1) {
-        ws2811_t ledstring_single = get_ledstring_single(LED_COUNT);
-        if ((ret = ws2811_init(&ledstring_single)) != WS2811_SUCCESS) {
-            log_fatal("ws2811_init failed: %s", ws2811_get_return_t_str(ret));
+        if ((ret = configure_ledstring_single(pattern, LED_COUNT)) != WS2811_SUCCESS) {
+            log_fatal("Bad stuff");
             return ret;
         }
 
-        if ((ret = pulse_create(&pattern)) != WS2811_SUCCESS) {
+        if ((ret = pulse_create(pattern)) != WS2811_SUCCESS) {
             log_fatal("pulse_create failed: %s", ws2811_get_return_t_str(ret));
             return ret;
         }
 
-        /* Custom program settings */
-        pattern->ledstring = ledstring_single;
         pattern->pulseWidth = pulse_width;
     }
     else if (program == 2) {
-        ws2811_t ledstring_double = get_ledstring_double(LED_COUNT, LED_COUNT);
-        if ((ret = ws2811_init(&ledstring_double)) != WS2811_SUCCESS) {
-            log_fatal("ws2811_init failed: %s", ws2811_get_return_t_str(ret));
+        if ((ret = configure_ledstring_double(pattern, LED_COUNT, LED_COUNT)) != WS2811_SUCCESS) {
+            log_fatal("Bad stuff");
             return ret;
         }
-
-        if ((ret = perimeter_rainbow_create(&pattern)) != WS2811_SUCCESS) {
+        if ((ret = perimeter_rainbow_create(pattern)) != WS2811_SUCCESS) {
             log_fatal("perimeter_rainbow_create failed: %s", ws2811_get_return_t_str(ret));
             return ret;
         }
-
-        /* Custom program settings */
-        pattern->ledstring = ledstring_double;
         pattern->pulseWidth = pulse_width;
     }
 
-    pattern->led_count = led_count;
+    //pattern->led_count = led_count;
     pattern->clear_on_exit = clear_on_exit;
     pattern->maintainColor = maintain_colors;
     pattern->movement_rate = movement_rate;
@@ -329,7 +259,6 @@ int main(int argc, char *argv[])
 
     /* Start the program */
     pattern->func_start_pattern(pattern);
-
 
     /* We halt until control+c is provided */
     if (program == 0) {
@@ -358,7 +287,7 @@ int main(int argc, char *argv[])
         }
     }
     /* Clear the program from memory */
-    ws2811_fini(&pattern->ledstring);
+    ws2811_fini(pattern->ledstring);
 
     /* Clean up stuff */
     if (program == 0) {
@@ -370,6 +299,7 @@ int main(int argc, char *argv[])
     else if (program == 1) {
         perimeter_rainbow_delete(pattern);
     }
-    pattern = NULL;
+    pattern_delete(pattern);
+    free(pattern);
     return ret;
 }

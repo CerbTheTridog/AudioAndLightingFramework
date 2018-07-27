@@ -1,59 +1,20 @@
-#ifndef __PATTERN_H
-#define __PATTERN_H
+#ifndef __PATTERN_H__
+#define __PATTERN_H__
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#include "rpi_ws281x/ws2811.h"
 #include <stdbool.h>
 #include <pthread.h>
-#include "rpi_ws281x/ws2811.h"
-// defaults for cmdline options
+#include <assert.h>
+#include "log.h"
 #define TARGET_FREQ             WS2811_TARGET_FREQ
 #define GPIO_PIN_ONE            18
-#define GPIO_PIN_TWO            12
+#define GPIO_PIN_TWO            13
 #define DMA                     10
 #define STRIP_TYPE              WS2811_STRIP_GRB		// WS2812/SK6812RGB integrated chip+leds
-
-static inline ws2811_t
-get_ledstring_single(uint32_t led_count)
-{
-    
-    ws2811_t ledstring;
-    ledstring.freq = TARGET_FREQ;
-    ledstring.dmanum = DMA;
-    ledstring.channel[0].gpionum = GPIO_PIN_ONE;
-    ledstring.channel[0].count = led_count;
-    ledstring.channel[0].invert = 0;
-    ledstring.channel[0].brightness = 255;
-    ledstring.channel[0].strip_type = STRIP_TYPE;
-    ledstring.channel[1].gpionum = 0;
-    ledstring.channel[1].count = 0;
-    ledstring.channel[1].invert = 0;
-    ledstring.channel[1].brightness = 255;
-    ledstring.channel[1].strip_type = STRIP_TYPE;
-    return ledstring;
-}
-
-static inline ws2811_t
-get_ledstring_double(uint32_t ch1_led_count, uint32_t ch2_led_count)
-{
-
-    ws2811_t ledstring_double;
-    ledstring_double.freq = TARGET_FREQ;
-    ledstring_double.dmanum = DMA;
-    ledstring_double.channel[0].gpionum = GPIO_PIN_ONE;
-    ledstring_double.channel[0].count = ch1_led_count;
-    ledstring_double.channel[0].invert = 0;
-    ledstring_double.channel[0].brightness = 255;
-    ledstring_double.channel[0].strip_type = STRIP_TYPE;
-    ledstring_double.channel[1].gpionum = GPIO_PIN_ONE;
-    ledstring_double.channel[1].count = ch2_led_count;
-    ledstring_double.channel[1].invert = 0;
-    ledstring_double.channel[1].brightness = 255;
-    ledstring_double.channel[1].strip_type = STRIP_TYPE;
-    return ledstring_double;
-}
 
 #define COLOR_RED         0x00FF0000
 #define COLOR_ORANGE      0x00FF8000
@@ -75,6 +36,7 @@ static const ws2811_led_t colors[] =
     COLOR_PINK
 };
 
+#define MAX_NAME_LENGTH 256
 static const uint32_t colors_size = 8;
 
 /* The basic structure for all patterns */
@@ -85,7 +47,7 @@ struct pattern
     /* y - XXX: Rainbow Specific*/
     //uint16_t height;
     /* The total number of LEDs to consider as a part of the pattern */
-    uint32_t led_count;
+    //uint32_t led_count;
     /* Turn off the lights when exiting */
     bool clear_on_exit;
     /* Movement Rate - LEDs per second */
@@ -102,7 +64,7 @@ struct pattern
     pthread_t thread_id;
 
     /* The actual led string */
-    ws2811_t ledstring;
+    ws2811_t *ledstring;
     /* The 2-dimensional representation of what lights are what color */
     ws2811_led_t *matrix;
     
@@ -122,19 +84,102 @@ struct pattern
     char *name;
 };
 
+static inline struct pattern*
+create_pattern()
+{
+    return calloc(1, sizeof(struct pattern));
+}
+
+static inline void
+pattern_delete(struct pattern *pattern)
+{
+    free(pattern->ledstring);
+    pattern->ledstring = NULL;
+}
+
+static inline ws2811_return_t
+configure_ledstring_single(struct pattern *pattern, uint32_t led_count)
+{
+    ws2811_return_t ret = WS2811_SUCCESS;
+
+    pattern->ledstring = (ws2811_t*)calloc(1, sizeof(ws2811_t));
+    if (pattern->ledstring == NULL) {
+        return WS2811_ERROR_OUT_OF_MEMORY;
+    }
+
+    pattern->ledstring->freq = TARGET_FREQ;
+    pattern->ledstring->dmanum = DMA;
+    pattern->ledstring->channel[0].gpionum = GPIO_PIN_ONE;
+    pattern->ledstring->channel[0].count = led_count;
+    pattern->ledstring->channel[0].invert = 0;
+    pattern->ledstring->channel[0].brightness = 100;
+    pattern->ledstring->channel[0].strip_type = STRIP_TYPE;
+    pattern->ledstring->channel[1].gpionum = 0;
+    pattern->ledstring->channel[1].count = 0;
+    pattern->ledstring->channel[1].invert = 0;
+    pattern->ledstring->channel[1].brightness = 100;
+    pattern->ledstring->channel[1].strip_type = STRIP_TYPE;
+
+    if ((ret = ws2811_init(pattern->ledstring)) != WS2811_SUCCESS) {
+        log_fatal("ws2811_init failed: %s", ws2811_get_return_t_str(ret));
+        return ret;
+    }
+    return ret;
+}
+
+static inline ws2811_return_t
+configure_ledstring_double(struct pattern *pattern, uint32_t ch1_led_count, uint32_t ch2_led_count)
+{
+    ws2811_return_t ret = WS2811_SUCCESS;
+
+    pattern->ledstring = (ws2811_t*) calloc(1, sizeof(ws2811_t));
+    if (pattern->ledstring == NULL) {
+        return WS2811_ERROR_OUT_OF_MEMORY;
+    }
+
+    pattern->ledstring->freq = TARGET_FREQ;
+    pattern->ledstring->dmanum = DMA;
+    pattern->ledstring->channel[0].gpionum = GPIO_PIN_ONE;
+    pattern->ledstring->channel[0].count = ch1_led_count;
+    pattern->ledstring->channel[0].invert = 0;
+    pattern->ledstring->channel[0].brightness = 150;
+    pattern->ledstring->channel[0].strip_type = STRIP_TYPE;
+
+    pattern->ledstring->channel[1].gpionum = GPIO_PIN_TWO;
+    pattern->ledstring->channel[1].count = ch2_led_count;
+    pattern->ledstring->channel[1].invert = 0;
+    pattern->ledstring->channel[1].brightness = 150;
+    pattern->ledstring->channel[1].strip_type = STRIP_TYPE;
+
+    if ((ret = ws2811_init(pattern->ledstring)) != WS2811_SUCCESS) {
+        log_fatal("ws2811_init failed: %s", ws2811_get_return_t_str(ret));
+        return ret;
+    }
+    return ret;
+}
+
 
 /* This only shifts forward one */
 inline void
 move_lights(struct pattern *pattern, uint32_t shift_distance)
 {
-    ws2811_led_t *led_array = pattern->ledstring.channel[0].leds;
+    ws2811_led_t *ch1_array = pattern->ledstring->channel[0].leds;
+    ws2811_led_t *ch2_array = pattern->ledstring->channel[1].leds;
 
-    // Shift everything in ledstring exactly one led forward
-    int i = pattern->led_count - shift_distance;
+    uint32_t count_ch1 = pattern->ledstring->channel[0].count;
+    int i = count_ch1 - shift_distance;
     while (i > 0) {
-        memmove(&led_array[i], &led_array[i-shift_distance], sizeof(ws2811_led_t));
+        memmove(&ch1_array[i], &ch1_array[i-shift_distance], sizeof(ws2811_led_t));
         i--;
     }
+
+    uint32_t count_ch2 = pattern->ledstring->channel[1].count;
+    int j = count_ch2 - shift_distance;
+    while (j > 0) {
+        memmove(&ch2_array[j], &ch2_array[j-shift_distance], sizeof(ws2811_led_t));
+        j--;
+    }
+
 }
 
 /* XXX: Build a move_lights that moves from end back to beginning */

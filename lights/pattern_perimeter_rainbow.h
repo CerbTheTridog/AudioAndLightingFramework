@@ -35,7 +35,7 @@ extern "C" {
 
 #include "rpi_ws281x/ws2811.h"
 #include "pattern.h"
-ws2811_return_t perimeter_rainbow_create(struct pattern **pattern);
+ws2811_return_t perimeter_rainbow_create(struct pattern *pattern);
 ws2811_return_t perimeter_rainbow_delete(struct pattern*);
 #ifdef __cplusplus
 }

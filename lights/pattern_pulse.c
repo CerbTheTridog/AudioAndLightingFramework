@@ -78,7 +78,6 @@ matrix_run2(void *vargp)
     ws2811_return_t ret = WS2811_SUCCESS;
     struct pattern *pattern = (struct pattern*)vargp;
     assert(pattern->running);
-    pattern->ledstring.channel[0].brightness = 255;
     int i = 0;
     bool rampUp = true;
     bool colorFinished = true;
@@ -126,7 +125,7 @@ matrix_run2(void *vargp)
                  * we ramp up from where we are */
                 /* Start with the maximum desired brightness */
                 // XXX rename me
-                maxStripBrightness = pattern->ledstring.channel[0].brightness;
+                maxStripBrightness = pattern->ledstring->channel[0].brightness;
                 /* Divide maximum brightness by the width of the pulse */
                 slope = (double)(((double)(maxStripBrightness-(prev_amp*256))/(double)pulseWidth) / 256);
                 /* Multiply by the intensity */
@@ -136,13 +135,13 @@ matrix_run2(void *vargp)
             }
             /* Pulse is finished, insert a blank */
             else if (colorFinished) {
-                pattern->ledstring.channel[0].leds[0] = 0;
+                pattern->ledstring->channel[0].leds[0] = 0;
             } 
             //printf("Prev Amp: %lf\n", prev_amp);
             if (!colorFinished) { 
                 if (rampUp && ((uint32_t)i == ((uint32_t)pulseWidth-1))) {
                     rampUp = false;
-                    maxStripBrightness = pattern->ledstring.channel[0].brightness;
+                    maxStripBrightness = pattern->ledstring->channel[0].brightness;
                     /* Recalculate slope for coming down to 0*/
                     slope = (double)(((double)maxStripBrightness/(double)pulseWidth) / 256);
                     slope = slope * (double)((double)intensity/(double)100);
@@ -155,7 +154,7 @@ matrix_run2(void *vargp)
                 green = ((uint32_t)(g_shift * scalar) << 8);
                 blue = ((uint32_t)(b_shift * scalar));
 
-                pattern->ledstring.channel[0].leds[0] = (red+green+blue);
+                pattern->ledstring->channel[0].leds[0] = (red+green+blue);
                 log_matrix_trace("Injecting %d %d %d\n", i, red, green, blue);
                 i = (rampUp) ? (i + 1) : (i - 1);
                 
@@ -166,7 +165,7 @@ matrix_run2(void *vargp)
                 assert(i >= 0);
             }
 
-            if ((ret = ws2811_render(&pattern->ledstring)) != WS2811_SUCCESS) {
+            if ((ret = ws2811_render(pattern->ledstring)) != WS2811_SUCCESS) {
                 log_error("ws2811_render failed: %s", ws2811_get_return_t_str(ret));
                 // xxx: this should cause some sort of fatal error to propogate upwards
                 break;
@@ -215,12 +214,12 @@ pulse_clear(struct pattern *pattern)
     log_info("Pattern Pulse: Clearing Pattern");
     ws2811_return_t ret = WS2811_SUCCESS;
     uint32_t i;
-
-    for (i = 0; i < pattern->led_count; i++) {
-        pattern->ledstring.channel[0].leds[i] = 0;
+    uint32_t led_count = pattern->ledstring->channel[0].count;
+    for (i = 0; i < led_count; i++) {
+        pattern->ledstring->channel[0].leds[i] = 0;
     }
 
-    if ((ret = ws2811_render(&pattern->ledstring)) != WS2811_SUCCESS) {
+    if ((ret = ws2811_render(pattern->ledstring)) != WS2811_SUCCESS) {
         log_error("ws2811_render failed: %s", ws2811_get_return_t_str(ret));
         // xxx: this should cause some sort of fatal error to propogate upwards
     }
@@ -255,26 +254,20 @@ pulse_kill(struct pattern *pattern)
 }
 
 ws2811_return_t
-pulse_create(struct pattern **pattern)
+pulse_create(struct pattern *pattern)
 {
     log_trace("pulse_create()");
-    *pattern = malloc(sizeof(struct pattern));
-    if (*pattern == NULL) {
-        log_error("Pattern Pulse: Unable to allocate memory for pattern\n");
-        return WS2811_ERROR_OUT_OF_MEMORY;
-    }
     /* Assign function pointers */
-    (*pattern)->func_load_pattern = &pulse_load;
-    (*pattern)->func_start_pattern = &pulse_start;
-    (*pattern)->func_kill_pattern = &pulse_kill;
-    (*pattern)->func_pause_pattern = &pulse_pause;
-    (*pattern)->func_inject = &pulse_inject;
+    pattern->func_load_pattern = &pulse_load;
+    pattern->func_start_pattern = &pulse_start;
+    pattern->func_kill_pattern = &pulse_kill;
+    pattern->func_pause_pattern = &pulse_pause;
+    pattern->func_inject = &pulse_inject;
 
     /* Set default values */
-    (*pattern)->running = true;
-    (*pattern)->paused = true;
-    (*pattern)->matrix = NULL;
-    (*pattern)->pulseWidth = 0;
+    pattern->running = true;
+    pattern->paused = true;
+    pattern->pulseWidth = 0;
     return WS2811_SUCCESS;
 }   
 
@@ -283,8 +276,6 @@ pulse_delete(struct pattern *pattern)
 {
     log_trace("pulse_delete()");
     log_debug("Pattern Pulse: Freeing objects");
-    free(pattern->matrix);
-    pattern->matrix = NULL;
-    free(pattern);
+    assert(pattern != NULL);
     return WS2811_SUCCESS;
 }

@@ -81,21 +81,25 @@ matrix_run3(void *vargp)
     // First, fill initial pattern
     uint32_t led, color, width;
     color = 0;
-    assert(pattern->led_count > pattern->pulseWidth);
+    uint32_t led_count_ch1 = pattern->ledstring->channel[0].count;
+    //uint32_t led_count_ch2 = pattern->ledstring->channel[1].count;
+    assert(led_count_ch1 > pattern->pulseWidth);
     assert(pattern->pulseWidth != 0);
-    for (led = 0; led < pattern->led_count; ) {
+    // XXX: FIX led_count_ch2
+    for (led = 0; led < led_count_ch1; ) {
         for (width = 0; width < pattern->pulseWidth; width++) {
-            if (led == pattern->led_count) {
+            if (led == led_count_ch1) {
                 break;
             }
-            pattern->ledstring.channel[0].leds[led] = colors[color];   
+            pattern->ledstring->channel[0].leds[led] = colors[color];   
+            pattern->ledstring->channel[1].leds[led] = colors[color];
             led++;
         }
         color = (color < 7) ? color + 1: 0;
 
     }
 
-    if ((ret = ws2811_render(&pattern->ledstring)) != WS2811_SUCCESS) {
+    if ((ret = ws2811_render(pattern->ledstring)) != WS2811_SUCCESS) {
         log_error("ws2811_renderer failed: %s", ws2811_get_return_t_str(ret));
         // XXX: This should cause some sort of fatal error to propogate upwards
         return NULL;
@@ -103,11 +107,12 @@ matrix_run3(void *vargp)
 
     while (pattern->running)
     {   
-        ws2811_led_t buffer = pattern->ledstring.channel[0].leds[pattern->led_count-1];
+        ws2811_led_t buffer1 = pattern->ledstring->channel[0].leds[led_count_ch1-1];
+        ws2811_led_t buffer2 = pattern->ledstring->channel[1].leds[led_count_ch1-1];
         move_lights(pattern, 1);
-        pattern->ledstring.channel[0].leds[0] = buffer;
-
-        if ((ret = ws2811_render(&pattern->ledstring)) != WS2811_SUCCESS) {
+        pattern->ledstring->channel[0].leds[0] = buffer1;
+        pattern->ledstring->channel[1].leds[0] = buffer2;
+        if ((ret = ws2811_render(pattern->ledstring)) != WS2811_SUCCESS) {
             log_error("ws2811_renderer failed: %s", ws2811_get_return_t_str(ret));
             // XXX: This should cause some sort of fatal error to propogate upwards
             return NULL;
@@ -127,10 +132,7 @@ perimeter_rainbow_load(struct pattern *pattern)
     /* A protection against matrix_run() being called in a bad order. */
     pattern->running = 1;
 
-    /* Allocate memory */
-    pattern->matrix = calloc(pattern->led_count, sizeof(ws2811_led_t));
-
-    pthread_create(&pattern->thread_id, NULL, matrix_run3, pattern);
+    pthread_create(&pattern->thread_id, NULL, matrix_run3, (void*)pattern);
     log_info("Pattern %s: Loop is now running.", pattern->name);
     return WS2811_SUCCESS;
 }
@@ -159,12 +161,16 @@ perimeter_rainbow_clear(struct pattern *pattern)
     log_info("Pattern %s: Clearing Pattern", pattern->name);
     ws2811_return_t ret = WS2811_SUCCESS;
     uint32_t i;
-
-    for (i = 0; i < pattern->led_count; i++) {
-        pattern->ledstring.channel[0].leds[i] = 0;
+    uint32_t led_count_ch1 = pattern->ledstring->channel[0].count;
+    uint32_t led_count_ch2 = pattern->ledstring->channel[1].count;
+    for (i = 0; i < led_count_ch1; i++) {
+        pattern->ledstring->channel[0].leds[i] = 0;
+    }
+    for (i = 0; i < led_count_ch2; i++) {
+        pattern->ledstring->channel[1].leds[i] = 0;
     }
 
-    if ((ret = ws2811_render(&pattern->ledstring)) != WS2811_SUCCESS) {
+    if ((ret = ws2811_render(pattern->ledstring)) != WS2811_SUCCESS) {
         log_error("ws2811_render failed: %s", ws2811_get_return_t_str(ret));
         // xxx: this should cause some sort of fatal error to propogate upwards
     }
@@ -199,27 +205,23 @@ perimeter_rainbow_kill(struct pattern *pattern)
 }
 
 ws2811_return_t
-perimeter_rainbow_create(struct pattern **pattern)
+perimeter_rainbow_create(struct pattern *pattern)
 {
     log_trace("perimeter_rainbow_create()");
-    *pattern = malloc(sizeof(struct pattern));
-    if (*pattern == NULL) {
-        log_error("Pattern Pulse: Unable to allocate memory for pattern\n");
-        return WS2811_ERROR_OUT_OF_MEMORY;
-    }
     /* Assign function pointers */
-    (*pattern)->func_load_pattern = &perimeter_rainbow_load;
-    (*pattern)->func_start_pattern = &perimeter_rainbow_start;
-    (*pattern)->func_kill_pattern = &perimeter_rainbow_kill;
-    (*pattern)->func_pause_pattern = &perimeter_rainbow_pause;
-    (*pattern)->func_inject = &perimeter_rainbow_inject;
+    pattern->func_load_pattern = &perimeter_rainbow_load;
+    pattern->func_start_pattern = &perimeter_rainbow_start;
+    pattern->func_kill_pattern = &perimeter_rainbow_kill;
+    pattern->func_pause_pattern = &perimeter_rainbow_pause;
+    pattern->func_inject = &perimeter_rainbow_inject;
 
     /* Set default values */
-    (*pattern)->running = true;
-    (*pattern)->paused = true;
-    (*pattern)->matrix = NULL;
-    (*pattern)->pulseWidth = 0;
-    (*pattern)->name = "Perimeter Rainbow";
+    pattern->running = true;
+    pattern->paused = true;
+    pattern->pulseWidth = 0;
+    pattern->name = calloc(256, sizeof(char));
+    strcpy(pattern->name, "Perimiter Rainbow");
+    //(*pattern)->name = "Perimeter Rainbow";
     return WS2811_SUCCESS;
 }   
 
@@ -228,10 +230,7 @@ perimeter_rainbow_delete(struct pattern *pattern)
 {
     log_trace("perimeter_rainbow_delete()");
     log_debug("Pattern %s: Freeing objects", pattern->name);
-    free(pattern->matrix);
-    pattern->matrix = NULL;
     free(pattern->name);
     pattern->name = NULL;
-    free(pattern);
     return WS2811_SUCCESS;
 }

@@ -35,8 +35,8 @@ extern "C" {
 
 #include "rpi_ws281x/ws2811.h"
 #include "pattern.h"
-ws2811_return_t rainbow_create(struct pattern **pattern);
-ws2811_return_t rainbow_delete(struct pattern*);
+ws2811_return_t rainbow_create(struct pattern *pattern);
+ws2811_return_t rainbow_delete(struct pattern *pattern);
 #ifdef __cplusplus
 }
 #endif

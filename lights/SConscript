@@ -26,7 +26,6 @@
 # OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-
 Import(['clean_envs'])
 
 tools_env = clean_envs['userspace'].Clone()
@@ -39,7 +38,6 @@ lights_srcs = Split('''
 ''')
 
 lights_lib = tools_env.Library('lights', lights_srcs)
-#SConscript('rpi_ws281x/SConscript')
 tools_env['LIBS'].append('rpi_ws281x/libws2811.a')
 tools_env['LIBS'].append(lights_lib)
 
@@ -47,12 +45,16 @@ tools_env['LIBS'].append(lights_lib)
 srcs = Split('''
     main.c
 ''')
+if ARGUMENTS.get('VERBOSE') != '1':
+    tools_env['CCCOMSTR'] = "Compiling $TARGET"
+    tools_env['LINKCOMSTR'] = "Linking $TARGET"
 
 objs = []
 for src in srcs:
    objs.append(tools_env.Object(src))
 
-test = tools_env.Program('test', objs + tools_env['LIBS'], LIBS=['pthread', 'libws2811.a'], LIBPATH='./rpi_ws281x')
+test = tools_env.Program('test', objs + tools_env['LIBS'], LIBS=['pthread', 'libws2811.a'], LIBPATH='./rpi_ws281x', CCFLAGS=['-g', '-O0', '-fPIC', '-Wall', '-Wextra']
+)
 
 tools_env.Default([test, lights_lib])
 

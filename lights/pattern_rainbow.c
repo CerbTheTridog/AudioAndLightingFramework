@@ -53,6 +53,7 @@
 #include "log.h"
 
 #define ARRAY_SIZE(stuff)       (sizeof(stuff) / sizeof(stuff[0]))
+extern void move_lights(struct pattern *pattern, uint32_t shift_distance);
 
 static uint16_t dotspos[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
 
@@ -87,9 +88,10 @@ void matrix_render(struct pattern *pattern)
 {
     log_matrix_trace("matrix_renderer()");
     uint32_t x;
-    for (x = 0; x < pattern->led_count; x++)
+    uint32_t led_count = pattern->ledstring->channel[0].count;
+    for (x = 0; x < led_count; x++)
     {
-        pattern->ledstring.channel[0].leds[x] = pattern->matrix[x];
+        pattern->ledstring->channel[0].leds[x] = pattern->matrix[x];
     }
 }
 
@@ -97,8 +99,8 @@ void matrix_clear(struct pattern *pattern)
 {
     log_matrix_trace("matrix_clear()");
     uint32_t x;
-
-    for (x = 0; x < pattern->led_count; x++) {
+    uint32_t led_count = pattern->ledstring->channel[0].count;
+    for (x = 0; x < led_count; x++) {
         pattern->matrix[x] = 0;
     }
 }
@@ -108,16 +110,17 @@ void matrix_bottom(struct pattern *pattern)
     log_matrix_trace("matrix_bottom()");
 
     int i;
+    uint32_t led_count = pattern->ledstring->channel[0].count;
     for (i = 0; i < (int)(ARRAY_SIZE(dotspos)); i++) {
         dotspos[i]++;
         /* Loop back to beginning of string */
-        if (dotspos[i] > (pattern->led_count - 1))
+        if (dotspos[i] > (led_count - 1))
         {
             dotspos[i] = 0;
         }
 
         /* Not mine */
-        if (pattern->ledstring.channel[0].strip_type == SK6812_STRIP_RGBW) {
+        if (pattern->ledstring->channel[0].strip_type == SK6812_STRIP_RGBW) {
             pattern->matrix[dotspos[i]] = dotcolors_rgbw[i];
         }
         /* Mine */
@@ -132,11 +135,11 @@ void matrix_bottom(struct pattern *pattern)
         pattern->matrix[i] = 0;
         i++;
     }
-    if (dotspos[7] == pattern->led_count-1) {
+    if (dotspos[7] == led_count-1) {
         pattern->matrix[dotspos[7]] = 0;
     }
-    if (dotspos[7] == pattern->led_count) {
-        pattern->matrix[pattern->led_count] = 0;
+    if (dotspos[7] == led_count) {
+        pattern->matrix[led_count] = 0;
     }
 }
 
@@ -158,7 +161,7 @@ matrix_run(void *vargp)
         if (!pattern->paused) {
             matrix_bottom(pattern);
             matrix_render(pattern);
-            if ((ret = ws2811_render(&pattern->ledstring)) != WS2811_SUCCESS)
+            if ((ret = ws2811_render(pattern->ledstring)) != WS2811_SUCCESS)
             {
                 log_error("ws2811_render failed: %s", ws2811_get_return_t_str(ret));
                 // XXX: This should cause some sort of fatal error to propogate upwards
@@ -179,8 +182,8 @@ rainbow_load(struct pattern *pattern)
     log_trace("rainbow_load()");
 
     /* Allocate memory */
-    pattern->matrix = calloc(pattern->led_count, sizeof(ws2811_led_t));
-
+    pattern->matrix = calloc(pattern->ledstring->channel[0].count, sizeof(ws2811_led_t));
+    assert(pattern->matrix != NULL);
     /* A protection against matrix_run() being called in a bad order. */
     pattern->running = 1;
 
@@ -230,7 +233,7 @@ rainbow_kill(struct pattern *pattern)
         log_info("Raindow Pattern Loop: Clearing matrix");
         matrix_clear(pattern);
         matrix_render(pattern);
-        ws2811_render(&pattern->ledstring);
+        ws2811_render(pattern->ledstring);
     }
 
     log_info("Rainbow Pattern Loop: now stopped");
@@ -238,20 +241,20 @@ rainbow_kill(struct pattern *pattern)
 }
 
 ws2811_return_t
-rainbow_create(struct pattern **pattern)
+rainbow_create(struct pattern *pattern)
 {
     log_trace("rainbow_create()");
-    *pattern = malloc(sizeof(struct pattern));
-    if (*pattern == NULL) {
-        log_error("Rainbow Pattern: Unable to allocate memory for pattern\n");
-        return WS2811_ERROR_OUT_OF_MEMORY;
-    }
-    (*pattern)->func_load_pattern = &rainbow_load;
-    (*pattern)->func_start_pattern = &rainbow_start;
-    (*pattern)->func_kill_pattern = &rainbow_kill;
-    (*pattern)->func_pause_pattern = &rainbow_pause;
-    (*pattern)->running = true;
-    (*pattern)->paused = true;
+    //*pattern = malloc(sizeof(struct pattern));
+    //if (*pattern == NULL) {
+    //    log_error("Rainbow Pattern: Unable to allocate memory for pattern\n");
+    //    return WS2811_ERROR_OUT_OF_MEMORY;
+    //}
+    pattern->func_load_pattern = &rainbow_load;
+    pattern->func_start_pattern = &rainbow_start;
+    pattern->func_kill_pattern = &rainbow_kill;
+    pattern->func_pause_pattern = &rainbow_pause;
+    pattern->running = true;
+    pattern->paused = true;
     return WS2811_SUCCESS;
 }   
 
@@ -262,6 +265,5 @@ rainbow_delete(struct pattern *pattern)
     log_debug("Rainbow Pattern: Freeing objects");
     free(pattern->matrix);
     pattern->matrix = NULL;
-    free(pattern);
     return WS2811_SUCCESS;
 }

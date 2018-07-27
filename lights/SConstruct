@@ -46,8 +46,9 @@ platforms = [
             'CPPPATH' : [
             ],
             'LINKFLAGS' : [
-                "-lrt",
+                #"-lrt",
                 "-lpthread",
+                "-g",
             ],
         },
     ], 
@@ -61,6 +62,7 @@ for platform, tool, flags in platforms:
         toolpath = ['.'],
         ENV = {'PATH' : os.environ['PATH']},
         LIBS = [],
+        CCFLAGS=['-g', '-O0', '-fPIC', '-Wall', '-Wextra'],
     )
     env.MergeFlags(flags)
     clean_envs[platform] = env
