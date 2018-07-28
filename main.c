@@ -55,6 +55,7 @@ static char VERSION[] = "0.0.6";
 #include "pattern_rainbow.h"
 #include "pattern_pulse.h"
 #include "pattern_perimeter_rainbow.h"
+#include "pattern_static_color.h"
 #include "log.h"
 
 /*
@@ -248,8 +249,17 @@ int main(int argc, char *argv[])
         }
         pattern->pulseWidth = pulse_width;
     }
-
-    //pattern->led_count = led_count;
+    else if (program == 3) {
+        if ((ret = configure_ledstring_double(pattern, LED_COUNT, LED_COUNT)) != WS2811_SUCCESS) {
+            log_fatal("Bad stuff");
+            return ret;
+        }
+        if ((ret = static_color_create(pattern)) != WS2811_SUCCESS) {
+            log_fatal("static_color_create failed: %s", ws2811_get_return_t_str(ret));
+            return ret;
+        }
+        sleep_rate = 600000;
+    }
     pattern->clear_on_exit = clear_on_exit;
     pattern->maintainColor = maintain_colors;
     pattern->movement_rate = movement_rate;
@@ -283,6 +293,12 @@ int main(int argc, char *argv[])
     }
     else if (program == 2) {
         while (running) {
+            usleep(sleep_rate);
+        }
+    }
+    else if (program == 3) {
+        while (running) {
+            pattern->func_inject(colors[rand() % colors_size], rand()%100);
             usleep(sleep_rate);
         }
     }

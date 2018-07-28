@@ -72,14 +72,14 @@ void BeatMatchEvent::EventThread()
 		float maxVal = -1;
 		float minVal = SampleRate;
 		float avgVal = 0;
-		int maxIndex = -1;
+        //int maxIndex = -1;
         float *frame = (float*)malloc(sizeof(float) * FFTSize / 2);
         for( int j=0; j < FFTSize / 2; ++j ) {
             frame[j] = data[j] * data[j] + datai[j] * datai[j];
 			
 			if( frame[j] > maxVal ) {
 				maxVal = frame[j];
-				maxIndex = j;
+				//maxIndex = j;
 			}
 			 
 			if( frame[j] < minVal) {
