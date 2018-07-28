@@ -46,9 +46,12 @@ platforms = [
             'CPPPATH' : [
             ],
             'LINKFLAGS' : [
-                #"-lrt",
+                "-lrt",
                 "-lpthread",
+            ],
+            'CCFLAGS' : [
                 "-g",
+                "-O0",
             ],
         },
     ], 
@@ -62,11 +65,9 @@ for platform, tool, flags in platforms:
         toolpath = ['.'],
         ENV = {'PATH' : os.environ['PATH']},
         LIBS = [],
-        CCFLAGS=['-g', '-O0', '-fPIC', '-Wall', '-Wextra'],
     )
     env.MergeFlags(flags)
     clean_envs[platform] = env
-
 
 Help(opts.GenerateHelpText(clean_envs))
 
@@ -75,7 +76,11 @@ if env['TOOLCHAIN'] != '':
     env['AR'] = env['TOOLCHAIN'] + '-ar'
 Export(['clean_envs'])
 
-subdirs = ['rpi_ws281x', './']
+#from pprint import pprint
+#pprint(vars(env))
+
+subdirs = ['/home/pi/AudioAndLightingFramework/lights/rpi_ws281x',
+           '/home/pi/AudioAndLightingFramework/lights/']
 
 for subdir in subdirs:
         SConscript(os.path.join(subdir, 'SConscript'), exports = ['clean_envs'])

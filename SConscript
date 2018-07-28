@@ -26,27 +26,40 @@
 # OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-print "=================================="
-print "= Reading lights SConscript File ="
-print "=================================="
+print "================================"
+print "= Reading top-level SConscript ="
+print "================================"
 print 
 
 Import(['clean_envs'])
 
 tools_env = clean_envs['userspace'].Clone()
 
-lights_srcs = Split('''
-    pattern_rainbow.c
-    pattern_pulse.c
-    pattern_perimeter_rainbow.c
-    log.c
+tools_env['LIBS'].append('lights/liblights.a')
+tools_env['LIBS'].append('lights/rpi_ws281x/libws2811.a')
+tools_env['LIBS'].append('audio/libaudio.a')
+tools_env['LIBS'].append('audio/lib/libfft.a')
+srcs = Split('''
+    beatmatchtest.cpp
 ''')
 
-lights_lib = tools_env.Library('lights', lights_srcs)
-
-tools_env['LIBS'].append('rpi_ws281x/libws2811.a')
-tools_env['LIBS'].append(lights_lib)
+#srcs = Split('''
+#    main.c
+#''')
 
 if ARGUMENTS.get('VERBOSE') != '1':
     tools_env['CCCOMSTR'] = "Compiling $TARGET"
     tools_env['LINKCOMSTR'] = "Linking $TARGET"
+
+objs = []
+for src in srcs:
+   objs.append(tools_env.Object(src))
+
+
+# Additional Compiler Flags
+additionalFlags = tools_env.ParseFlags("-Ilights -Iaudio -Ilights/rpi_ws281x -Iaudio/lib ")
+tools_env.MergeFlags(additionalFlags)
+
+test = tools_env.Program('test', objs + tools_env['LIBS'], LIBS=tools_env['LIBS'], CCFLAGS=tools_env['CCFLAGS'])
+
+tools_env.Default([test])

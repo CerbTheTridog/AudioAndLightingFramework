@@ -48,6 +48,11 @@ platforms = [
             'LINKFLAGS' : [
                 "-lrt",
                 "-lpthread",
+                "-lportaudio",
+            ],
+            'CCFLAGS' : [
+                "-g",
+                "-O0",
             ],
         },
     ], 
@@ -72,7 +77,16 @@ if env['TOOLCHAIN'] != '':
     env['AR'] = env['TOOLCHAIN'] + '-ar'
 Export(['clean_envs'])
 
-subdirs = ['lights/rpi_ws281x', 'lights']
+additionalFlags = env.ParseFlags("-Ilights -Iaudio -Ilights/rpi_ws281x -Iaudio/lib ")
+env.MergeFlags(additionalFlags)
+
+#from pprint import pprint
+#pprint(vars(env))
+
+subdirs = ['/home/pi/AudioAndLightingFramework/lights/rpi_ws281x',
+           '/home/pi/AudioAndLightingFramework/lights',
+           '/home/pi/AudioAndLightingFramework/audio',
+           '/home/pi/AudioAndLightingFramework']
 
 for subdir in subdirs:
         SConscript(os.path.join(subdir, 'SConscript'), exports = ['clean_envs'])
