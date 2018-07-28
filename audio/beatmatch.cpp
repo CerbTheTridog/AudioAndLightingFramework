@@ -10,7 +10,7 @@
 
 BeatMatch::BeatMatch(int sample_rate, int fft_size, int fft_exp) 
 {
-    if(fft_size & (fft_size - 1) != 0) 
+    if((fft_size & (fft_size - 1)) != 0) 
     {
             throw "FFT Size must be a power of 2.";
     }
