@@ -87,7 +87,7 @@ struct pattern
 static inline struct pattern*
 create_pattern()
 {
-    return calloc(1, sizeof(struct pattern));
+    return (struct pattern*)calloc(1, sizeof(struct pattern));
 }
 
 static inline void
