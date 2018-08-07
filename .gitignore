@@ -2,10 +2,11 @@
 *.o
 *.a
 *.pyc
-
+*.os
+*.so
 # These are some other compiled files
 *lights/rpi_ws281x/test
 *lights/test
-
+test
 # Ignore the scons database
 *.sconsign.dblite
