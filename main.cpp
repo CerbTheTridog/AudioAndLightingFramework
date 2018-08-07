@@ -58,6 +58,13 @@ static char VERSION[] = "0.0.6";
 #include "pattern_static_color.h"
 #include "log.h"
 
+#include "beatmatch.h"
+#include "beatmatchevent.h"
+#include "audio/lib/libfft.h"
+
+
+
+
 /*
 	PWM0, which can be set to use GPIOs 12, 18, 40, and 52.
 	Only 12 (pin 32) and 18 (pin 12) are available on the B+/2B/3B
@@ -77,15 +84,30 @@ static char VERSION[] = "0.0.6";
 #define ARRAY_SIZE(stuff)       (sizeof(stuff) / sizeof(stuff[0]))
 
 #define SLEEP                   .5
-#define LED_COUNT               750
+/* 672 per strip in living room */
+#define LED_COUNT               672
 #define MOVEMENT_RATE           100
 #define PULSE_WIDTH             10
+
+enum ProgramList {
+    PULSE,
+    PULSE_AUDIO,
+    RAINBOW,
+    RAINBOW_AUDIO,
+    PERIMETER,
+    PERIMETER_AUDIO,
+    STATIC,
+    STATIC_AUDIO
+};
 
 static int clear_on_exit = 0;
 static struct pattern *pattern;
 static double movement_rate = MOVEMENT_RATE;
 static bool maintain_colors = false;
 static uint32_t pulse_width = PULSE_WIDTH;
+
+// Do not do anything with power source
+static bool power_source = false;
 int program = 0;
 static uint32_t sleep_rate = SLEEP * 1000000;
 uint8_t running = 1;
@@ -98,15 +120,26 @@ static void ctrl_c_handler(int signum)
     pattern->func_kill_pattern(pattern);
 }
 
+
 static void setup_handlers(void)
 {
-    struct sigaction sa =
-    {
-        .sa_handler = ctrl_c_handler,
-    };
+    //void signalHandler(int signum);
+    void floatGet(float *input, int size);
+    void bmeColorGet(int color, int intensity);
+
+    struct sigaction action;
+    action.sa_handler = ctrl_c_handler;
+    sigemptyset (&action.sa_mask);
+    action.sa_flags=0;
+
+    //struct sigaction sa =
+    //{
+     //   .sa_handler = ctrl_c_handler,
+    //};
     
-    sigaction(SIGINT, &sa, NULL);
-    sigaction(SIGTERM, &sa, NULL);
+    sigaction(SIGINT, &action, NULL);
+    sigaction(SIGTERM, &action, NULL);
+    sigaction(SIGHUP, &action, NULL);
 }
 
 
@@ -122,9 +155,9 @@ void parseargs(int argc, char **argv)
 		{"version", no_argument, 0, 'v'},
         {"program", required_argument, 0, 'p'},
         {"movement_rate", required_argument, 0, 'm'},
-        {"maintain_color", required_argument, 0, 'M'},
         {"sleep_rate", required_argument, 0, 'S'},
         {"pulse_width", required_argument, 0, 'P'},
+        {"power_source", required_argument, 0, 'X'},
         {0, 0, 0, 0}
 	};
 
@@ -132,7 +165,7 @@ void parseargs(int argc, char **argv)
 	{
 
 		index = 0;
-		c = getopt_long(argc, argv, "hcv:p:m:M:S:P:", longopts, &index);
+		c = getopt_long(argc, argv, "hcv:p:m:S:P:X:", longopts, &index);
 
 		if (c == -1)
 			break;
@@ -144,7 +177,6 @@ void parseargs(int argc, char **argv)
 			break;
 
 		case 'h':
-			printf("FARTING");
             fprintf(stderr, "%s version %s\n", argv[0], VERSION);
 			fprintf(stderr, "Usage: %s \n"
 				"-h (--help)    - this information\n"
@@ -153,19 +185,16 @@ void parseargs(int argc, char **argv)
                 "-p (--program) - Which program to run\n"
                 "-m (--movement_rate)  - The number of seconds for an LED to move from one to the next\n"
                 "-S (--sleep_rate)     - The number of seconds to sleep between commands\n"
-                "###-M### (--maintain_color) - Goes nowhere, does nothing\n"
                 "-P (--pulse_width)    - The number of LEDs x2 per pulse\n"
+                "-X (--power_source)   -  1) On: Turn the power source on and keep it on\n"
+                "                      -  2) Off: Turn the power source off and keep it off\n"
+                "                      -  3) Auto: Turn power source on for program, and then turn it off when done\n"
 				, argv[0]);
 			exit(-1);
 
         case 'm':
             if (optarg) {
                 movement_rate = atof(optarg);
-            }
-            break;
-        case 'M':
-            if (optarg) {
-                maintain_colors = atoi(optarg);
             }
             break;
 		case 'c':
@@ -188,6 +217,26 @@ void parseargs(int argc, char **argv)
                 printf("SLEEPING FOR %d\n", sleep_rate);
             }
             break;
+        case 'X':
+            printf("FARTS");
+            if (optarg) {
+                printf("FUCKS");
+                switch (atoi(optarg)) {
+                case 1: 
+                    printf("Turning on power source and exiting\n");
+                    system("/home/pi/tplink-smartplug-master/tplink_smartplug.py -t 10.0.0.164 -c on");
+                    exit(1);
+                case 2:
+                    printf("Turning off power source and exiting\n");
+                    system("/home/pi/tplink-smartplug-master/tplink_smartplug.py -t 10.0.0.164 -c off");
+                    exit(1);
+                case 3:
+                    printf("Power Source set to automatic\n");
+                    power_source = true;
+                    break;
+                }
+            }
+            break;
 		case 'v':
 			fprintf(stderr, "%s version %s\n", argv[0], VERSION);
 			exit(-1);
@@ -201,8 +250,32 @@ void parseargs(int argc, char **argv)
 	}
 }
 
+void bmeColorInject(int color, int intensity)
+{
+    if (pattern) {
+        pattern->func_inject(color, intensity);
+    }
+}
+
+void bmeStaticColorInject(int color, int intensity)
+{
+    if (pattern) {
+        pattern->func_inject(color, intensity);
+
+    }
+}
+
+void bmePerimeterColorInject(int color, int intensity)
+{
+    if (color) {};
+    if (pattern) {
+        pattern->func_inject(colors[COLOR_NONE], intensity);
+    }
+}
+
 int main(int argc, char *argv[])
 {
+    BeatMatchEvent *bme;
     /* LOG_MATRIX_TRACE, LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR, LOG_FATAL */
     log_set_level(LOG_DEBUG);
 
@@ -214,52 +287,44 @@ int main(int argc, char *argv[])
     setup_handlers();
     pattern = create_pattern();
 
+    /* Turn on power source */
+    // XXX: Do this better
+    if (power_source)
+        system("/home/pi/tplink-smartplug-master/tplink_smartplug.py -t 10.0.0.164 -c on");
+
+    if ((ret = configure_ledstring_double(pattern, LED_COUNT, LED_COUNT)) != WS2811_SUCCESS) {
+        log_fatal("Bad Stuff");
+        return ret;
+    }
+
     /* Which pattern to do? */
     if (program == 0) {
-        if ((ret = configure_ledstring_single(pattern, LED_COUNT)) != WS2811_SUCCESS) {
-            log_fatal("Bad stuff");
-            return ret;
-        }
         if((ret = rainbow_create(pattern)) != WS2811_SUCCESS) {
             log_fatal("rainbox_create failed: %s", ws2811_get_return_t_str(ret));
             return ret;
         }
     }
-    else if (program == 1) {
-        if ((ret = configure_ledstring_single(pattern, LED_COUNT)) != WS2811_SUCCESS) {
-            log_fatal("Bad stuff");
-            return ret;
-        }
-
+    else if (program == 1 || program == 4) {
         if ((ret = pulse_create(pattern)) != WS2811_SUCCESS) {
             log_fatal("pulse_create failed: %s", ws2811_get_return_t_str(ret));
             return ret;
         }
-
-        pattern->pulseWidth = pulse_width;
     }
-    else if (program == 2) {
-        if ((ret = configure_ledstring_double(pattern, LED_COUNT, LED_COUNT)) != WS2811_SUCCESS) {
-            log_fatal("Bad stuff");
-            return ret;
-        }
+    else if (program == 2 || program == 5) {
         if ((ret = perimeter_rainbow_create(pattern)) != WS2811_SUCCESS) {
             log_fatal("perimeter_rainbow_create failed: %s", ws2811_get_return_t_str(ret));
             return ret;
         }
-        pattern->pulseWidth = pulse_width;
     }
-    else if (program == 3) {
-        if ((ret = configure_ledstring_double(pattern, LED_COUNT, LED_COUNT)) != WS2811_SUCCESS) {
-            log_fatal("Bad stuff");
-            return ret;
-        }
+    else if (program == 3 || program == 6) {
         if ((ret = static_color_create(pattern)) != WS2811_SUCCESS) {
             log_fatal("static_color_create failed: %s", ws2811_get_return_t_str(ret));
             return ret;
         }
         sleep_rate = 600000;
     }
+
+    pattern->pulseWidth = pulse_width;
     pattern->clear_on_exit = clear_on_exit;
     pattern->maintainColor = maintain_colors;
     pattern->movement_rate = movement_rate;
@@ -292,19 +357,65 @@ int main(int argc, char *argv[])
         }
     }
     else if (program == 2) {
+        uint32_t color = rand() & colors_size;
+        uint32_t intensity = 100;
+        int step = 1;
+        bool a = false;
         while (running) {
+            if (a) {
+                color = rand() % colors_size;
+                intensity = rand()%2;
+                if (rand() % 2 == 0) {
+                    intensity = 100;
+                }
+                else {
+                    intensity = 50;
+                }
+            }
+            else {
+                if (intensity == 30) {
+                    step = 2;
+                }
+                else if (intensity == 100) {
+                    step = -2;
+                }
+                intensity += step;
+            }
+            if (rand() % 25 == 0) {
+                a = !a;
+            }
+            pattern->func_inject(colors[color], intensity);
             usleep(sleep_rate);
         }
     }
     else if (program == 3) {
+        uint32_t color;
+        uint32_t intensity = 100;
         while (running) {
-            pattern->func_inject(colors[rand() % colors_size], rand()%100);
+            pattern->func_inject(colors[COLOR_GREEN], 75);
+            color = rand() % colors_size;
+                        pattern->func_inject(colors[color], intensity);
             usleep(sleep_rate);
         }
     }
+    else if (program == 4) {
+        bme = new BeatMatchEvent(48000, 8192, 13, 440, 8, true, NULL, bmeColorInject);
+        bme->StartThread();
+        while (running) { }
+    }
+    else if (program == 5) {
+        bme = new BeatMatchEvent(48000, 8192, 13, 440, 8, true, NULL, bmePerimeterColorInject);
+        bme->StartThread();
+        while (running) { }
+    }
+    else if (program == 6) {
+        bme = new BeatMatchEvent(48000, 8192, 13, 440, 8, true, NULL, bmeStaticColorInject);
+        bme->StartThread();
+        while (running) { }
+    }
+
     /* Clear the program from memory */
     ws2811_fini(pattern->ledstring);
-
     /* Clean up stuff */
     if (program == 0) {
         rainbow_delete(pattern); 
@@ -312,10 +423,29 @@ int main(int argc, char *argv[])
     else if (program == 1) {
         pulse_delete(pattern);
     }
-    else if (program == 1) {
+    else if (program == 2) {
         perimeter_rainbow_delete(pattern);
+    }
+    else if (program == 3 || program == 6) {
+        static_color_delete(pattern);
+    }
+    else if (program == 4) {
+        pulse_delete(pattern);
+        bme->StopThread();
+    }
+    else if (program == 5) {
+        perimeter_rainbow_delete(pattern);
+        bme->StopThread();
+    }
+    else if (program == 6) {
+        static_color_delete(pattern);
+        bme->StopThread();
     }
     pattern_delete(pattern);
     free(pattern);
+
+    if (power_source)
+        system("/home/pi/tplink-smartplug-master/tplink_smartplug.py -t 10.0.0.164 -c off");
     return ret;
+}
 }

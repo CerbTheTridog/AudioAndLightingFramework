@@ -39,6 +39,7 @@ lights_srcs = Split('''
     pattern_rainbow.c
     pattern_pulse.c
     pattern_perimeter_rainbow.c
+    pattern_static_color.c
     log.c
 ''')
 

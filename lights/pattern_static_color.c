@@ -172,7 +172,7 @@ static_color_kill(struct pattern *pattern)
         }
         uint32_t led_count_ch2 = pattern->ledstring->channel[1].count;
         for (led = 0; led < led_count_ch2; led++) {
-            pattern->ledstring->channel[0].leds[led] = 0;
+            pattern->ledstring->channel[1].leds[led] = 0;
         }
         ws2811_render(pattern->ledstring);
     }

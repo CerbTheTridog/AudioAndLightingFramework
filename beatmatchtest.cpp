@@ -20,7 +20,7 @@ BeatMatchEvent *bme;
 #define DMA                     10
 #define STRIP_TYPE              WS2811_STRIP_GRB		// WS2812/SK6812RGB
 */
-#define LED_COUNT				300
+#define LED_COUNT				750
 
 static struct pattern *pattern;
 
@@ -39,7 +39,7 @@ int main()
 	sigaction (SIGHUP, &action, NULL);
 	sigaction (SIGTERM, &action, NULL);
 	
-	log_set_level(LOG_TRACE);
+	log_set_level(LOG_INFO);
 	
 	pattern = create_pattern();
 	ws2811_return_t ret;
@@ -69,15 +69,29 @@ int main()
 	bme->StartThread();
 	
 	while( running ){ }
-	
+
+    printf("A");
+    /* Clear the program from memory */
+    //ws2811_fini(pattern->ledstring);
+
+    /* Clean up stuff */
+    //pulse_delete(pattern);
+    //pattern_delete(pattern);
+    //free(pattern);
 	return 0;
 }
 
 void signalHandler( int signum ) { 
     printf("%d\n", signum);
-    running = false; 
-	bme->StopThread();
-	pattern->func_kill_pattern(pattern);
+    running = 0; 
+    bme->StopThread();
+
+    pattern->func_kill_pattern(pattern);
+    ws2811_fini(pattern->ledstring);
+
+    pulse_delete(pattern);
+    pattern_delete(pattern);
+    free(pattern);
 }
 
 //Callback that receives the array of observed frequencies and their loudness.

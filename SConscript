@@ -39,13 +39,13 @@ tools_env['LIBS'].append('lights/liblights.a')
 tools_env['LIBS'].append('lights/rpi_ws281x/libws2811.a')
 tools_env['LIBS'].append('audio/libaudio.a')
 tools_env['LIBS'].append('audio/lib/libfft.a')
-srcs = Split('''
-    beatmatchtest.cpp
-''')
-
 #srcs = Split('''
-#    main.c
+#    beatmatchtest.cpp
 #''')
+
+srcs = Split('''
+    main.cpp
+''')
 
 if ARGUMENTS.get('VERBOSE') != '1':
     tools_env['CCCOMSTR'] = "Compiling $TARGET"
@@ -57,7 +57,7 @@ for src in srcs:
 
 
 # Additional Compiler Flags
-additionalFlags = tools_env.ParseFlags("-Ilights -Iaudio -Ilights/rpi_ws281x -Iaudio/lib ")
+additionalFlags = tools_env.ParseFlags("-Ilights -Iaudio -Ilights/rpi_ws281x -Iaudio/lib -g -O0")
 tools_env.MergeFlags(additionalFlags)
 
 test = tools_env.Program('test', objs + tools_env['LIBS'], LIBS=tools_env['LIBS'], CCFLAGS=tools_env['CCFLAGS'])

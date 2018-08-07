@@ -1,3 +1,5 @@
+#ifndef __BEATMATCH_H__
+#define __BEATMATCH_H__
 #include <pthread.h>
 #include "lib/portaudio.h"
 
@@ -32,3 +34,4 @@ class BeatMatch
         float *window;
 		float mem1[4], mem2[4];
 };
+#endif

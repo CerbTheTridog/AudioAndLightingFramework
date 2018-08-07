@@ -128,6 +128,10 @@ bool BeatMatch::StopThread()
 {
     running = false;
     pthread_join(thread_id, NULL);
+    destroyfft(fft);
+    free(data);
+    free(datai);
+    free(window);
     return true;
 }
 

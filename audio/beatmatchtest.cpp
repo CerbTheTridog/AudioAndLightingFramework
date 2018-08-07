@@ -21,7 +21,6 @@ BeatMatchEvent *bme;
 */
 #define LED_COUNT				300
 
-static ws2811_t ledstring;
 static struct pattern *pattern;
 
 int main()
@@ -49,18 +48,17 @@ int main()
 	ledstring.channel[0].brightness = 100;
 	ledstring.channel[0].strip_type = STRIP_TYPE;*/
 	
-	ledstring = get_ledstring_single(LED_COUNT);
-	ledstring.channel[0].brightness = 100;
+    configure_ledstring_single(pattern, LED_COUNT);
 	
 	ws2811_return_t ret;
 	
-    if ((ret = ws2811_init(&ledstring)) != WS2811_SUCCESS)
-    {
-        log_fatal("ws2811_init failed: %s", ws2811_get_return_t_str(ret));
-        return ret;
-    }
+    //if ((ret = ws2811_init(&ledstring)) != WS2811_SUCCESS)
+    //{
+    //    log_fatal("ws2811_init failed: %s", ws2811_get_return_t_str(ret));
+    //    return ret;
+    //}
    
-	if ((ret = pulse_create(&pattern)) != WS2811_SUCCESS) {
+	if ((ret = pulse_create(pattern)) != WS2811_SUCCESS) {
 		log_fatal("pulse_create failed: %s", ws2811_get_return_t_str(ret));
 		return ret;
 	}
@@ -68,9 +66,9 @@ int main()
     /* Configure settings */
     //pattern->width = LED_COUNT;
     //pattern->height = 1;
-    pattern->led_count = LED_COUNT;
+    //pattern->led_count = LED_COUNT;
     pattern->clear_on_exit = true;
-    pattern->ledstring = ledstring;
+    //pattern->ledstring = ledstring;
     //pattern->maintainColor = maintain_colors;
     pattern->movement_rate = 100;
     pattern->pulseWidth = 0;
@@ -90,7 +88,8 @@ int main()
 }
 
 void signalHandler( int signum ) { 
-	running = false; 
+    printf("%d\n", signum);
+    running = false; 
 	bme->StopThread();
 	pattern->func_kill_pattern(pattern);
 }

@@ -24,6 +24,8 @@ extern "C" {
 #define COLOR_BLUE        0x000000FF
 #define COLOR_PURPLE      0x00FF00FF
 #define COLOR_PINK        0x00FF0080
+/* Basically means "Ignore color */
+#define COLOR_NONE        0x00000000
 static const ws2811_led_t colors[] =
 {
     COLOR_RED,
@@ -33,7 +35,8 @@ static const ws2811_led_t colors[] =
     COLOR_LIGHTBLUE,
     COLOR_BLUE,
     COLOR_PURPLE,
-    COLOR_PINK
+    COLOR_PINK,
+    COLOR_NONE
 };
 
 #define MAX_NAME_LENGTH 256
@@ -42,12 +45,6 @@ static const uint32_t colors_size = 8;
 /* The basic structure for all patterns */
 struct pattern
 {
-    /* x - XXX: Rainbow Specific */
-    //uint16_t width;
-    /* y - XXX: Rainbow Specific*/
-    //uint16_t height;
-    /* The total number of LEDs to consider as a part of the pattern */
-    //uint32_t led_count;
     /* Turn off the lights when exiting */
     bool clear_on_exit;
     /* Movement Rate - LEDs per second */
@@ -60,14 +57,20 @@ struct pattern
     bool maintainColor;
     /* The width of each pulse */
     uint32_t pulseWidth;
+
+    /* The maximum brightness of the strip */
+    uint32_t max_brightness;
+
     /* The thread id of the running loop */
     pthread_t thread_id;
 
     /* The actual led string */
     ws2811_t *ledstring;
+
     /* The 2-dimensional representation of what lights are what color */
     ws2811_led_t *matrix;
-    
+    uint32_t matrix_length;
+
     /* Load a given pattern and start its threaded loop */
     ws2811_return_t (*func_load_pattern)(struct pattern *pattern);
     /* Begin displaying a given pattern */
@@ -81,13 +84,17 @@ struct pattern
     /* XXX: This should only apply to pattern_pulse */
     ws2811_return_t (*func_inject)(ws2811_led_t color, uint32_t intensity);
 
-    char *name;
+    char name[256];
 };
 
 static inline struct pattern*
 create_pattern()
 {
-    return (struct pattern*)calloc(1, sizeof(struct pattern));
+
+    struct pattern *ret = (struct pattern*)calloc(1, sizeof(struct pattern));
+    // XXX: Clean this up!
+    ret->max_brightness = 100;
+    return ret;
 }
 
 static inline void
@@ -112,6 +119,7 @@ configure_ledstring_single(struct pattern *pattern, uint32_t led_count)
     pattern->ledstring->channel[0].gpionum = GPIO_PIN_ONE;
     pattern->ledstring->channel[0].count = led_count;
     pattern->ledstring->channel[0].invert = 0;
+    /* The strip brightness is irrelevent to pattern brightness */
     pattern->ledstring->channel[0].brightness = 100;
     pattern->ledstring->channel[0].strip_type = STRIP_TYPE;
     pattern->ledstring->channel[1].gpionum = 0;
@@ -142,13 +150,13 @@ configure_ledstring_double(struct pattern *pattern, uint32_t ch1_led_count, uint
     pattern->ledstring->channel[0].gpionum = GPIO_PIN_ONE;
     pattern->ledstring->channel[0].count = ch1_led_count;
     pattern->ledstring->channel[0].invert = 0;
-    pattern->ledstring->channel[0].brightness = 150;
+    pattern->ledstring->channel[0].brightness = 100;
     pattern->ledstring->channel[0].strip_type = STRIP_TYPE;
 
     pattern->ledstring->channel[1].gpionum = GPIO_PIN_TWO;
     pattern->ledstring->channel[1].count = ch2_led_count;
     pattern->ledstring->channel[1].invert = 0;
-    pattern->ledstring->channel[1].brightness = 150;
+    pattern->ledstring->channel[1].brightness = 100;
     pattern->ledstring->channel[1].strip_type = STRIP_TYPE;
 
     if ((ret = ws2811_init(pattern->ledstring)) != WS2811_SUCCESS) {
@@ -179,10 +187,62 @@ move_lights(struct pattern *pattern, uint32_t shift_distance)
         memmove(&ch2_array[j], &ch2_array[j-shift_distance], sizeof(ws2811_led_t));
         j--;
     }
-
 }
 
-/* XXX: Build a move_lights that moves from end back to beginning */
+inline void
+matrix_shift(ws2811_led_t *matrix, const uint32_t matrix_length, const int direction)
+{
+    if (direction == -1) {
+        for (uint32_t i = 1; i < matrix_length; i++) {
+            memmove(&matrix[i-1], &matrix[i], sizeof(ws2811_led_t));
+            matrix[i-1] = matrix[i];
+        }
+    }
+    else if (direction == 1) {
+        uint32_t i = matrix_length -1;
+        while (i > 0) {
+            memmove(&matrix[i], &matrix[i-1], sizeof(ws2811_led_t));
+            i--;
+        }
+        memmove(&matrix[i], &matrix[1], sizeof(ws2811_led_t));
+    }
+}
+
+inline void
+matrix_rotate(ws2811_led_t *matrix, const uint32_t matrix_length, const int direction)
+{
+    if (direction == -1) {
+        ws2811_led_t temp = matrix[0];
+        matrix_shift(matrix, matrix_length, direction);
+        matrix[matrix_length-1] = temp;
+    }
+    else if (direction == 1) {
+        ws2811_led_t temp = matrix[matrix_length-1];
+        matrix_shift(matrix, matrix_length, direction);
+        matrix[0] = temp;
+    }
+}
+
+/* destination, source, length, invert */
+inline void
+matrix_to_ledstring(ws2811_led_t *ledstring, ws2811_led_t *matrix, uint32_t length, bool invert)
+{
+    if (invert) {
+        uint32_t i = length-1;
+        uint32_t j = 0;
+        while (i > 0) {
+            memmove(&ledstring[j], &matrix[i], sizeof(ws2811_led_t));
+            i--;
+            j++;
+        }
+        memmove(&ledstring[j], &matrix[i], sizeof(ws2811_led_t));
+    }
+    else {
+        for (uint32_t i = 0; i < length; i++) {
+            memmove(&ledstring[i], &matrix[i], sizeof(ws2811_led_t));
+        }
+    }
+}
 
 #ifdef __cplusplus
 }

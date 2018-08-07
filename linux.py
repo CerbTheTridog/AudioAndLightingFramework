@@ -51,7 +51,7 @@ def linux_flags(env):
         'CPPFLAGS' : '''
             -fPIC
             -g
-            -O2
+            -O0
             -Wall
             -Wextra
             -Werror

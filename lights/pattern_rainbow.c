@@ -92,6 +92,7 @@ void matrix_render(struct pattern *pattern)
     for (x = 0; x < led_count; x++)
     {
         pattern->ledstring->channel[0].leds[x] = pattern->matrix[x];
+        pattern->ledstring->channel[1].leds[x] = pattern->matrix[x];
     }
 }
 
@@ -244,11 +245,6 @@ ws2811_return_t
 rainbow_create(struct pattern *pattern)
 {
     log_trace("rainbow_create()");
-    //*pattern = malloc(sizeof(struct pattern));
-    //if (*pattern == NULL) {
-    //    log_error("Rainbow Pattern: Unable to allocate memory for pattern\n");
-    //    return WS2811_ERROR_OUT_OF_MEMORY;
-    //}
     pattern->func_load_pattern = &rainbow_load;
     pattern->func_start_pattern = &rainbow_start;
     pattern->func_kill_pattern = &rainbow_kill;

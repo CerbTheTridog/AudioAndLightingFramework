@@ -126,16 +126,16 @@ matrix_run2(void *vargp)
                 /* Start with the maximum desired brightness */
                 // XXX rename me
                 maxStripBrightness = pattern->ledstring->channel[0].brightness;
+                maxStripBrightness = pattern->ledstring->channel[1].brightness;
                 /* Divide maximum brightness by the width of the pulse */
                 slope = (double)(((double)(maxStripBrightness-(prev_amp*256))/(double)pulseWidth) / 256);
                 /* Multiply by the intensity */
                 slope = slope * (double)((double)intensity/(double)100);
-                //printf("Slope: %lf Prev_Amp: %lf Total: %lf Intensity: %lf \n", slope, prev_amp,
-                //            ((slope*pulseWidth)+prev_amp), (double)((double)maxStripBrightness/(double)256));
             }
             /* Pulse is finished, insert a blank */
             else if (colorFinished) {
                 pattern->ledstring->channel[0].leds[0] = 0;
+                pattern->ledstring->channel[1].leds[0] = 0;
             } 
             //printf("Prev Amp: %lf\n", prev_amp);
             if (!colorFinished) { 
@@ -155,6 +155,7 @@ matrix_run2(void *vargp)
                 blue = ((uint32_t)(b_shift * scalar));
 
                 pattern->ledstring->channel[0].leds[0] = (red+green+blue);
+                pattern->ledstring->channel[1].leds[0] = (red+green+blue);
                 log_matrix_trace("Injecting %d %d %d\n", i, red, green, blue);
                 i = (rampUp) ? (i + 1) : (i - 1);
                 
@@ -217,6 +218,10 @@ pulse_clear(struct pattern *pattern)
     uint32_t led_count = pattern->ledstring->channel[0].count;
     for (i = 0; i < led_count; i++) {
         pattern->ledstring->channel[0].leds[i] = 0;
+    }
+    uint32_t led_count_ch2 = pattern->ledstring->channel[1].count;
+    for (i = 0; i < led_count_ch2; i++) {
+        pattern->ledstring->channel[1].leds[i] = 0;
     }
 
     if ((ret = ws2811_render(pattern->ledstring)) != WS2811_SUCCESS) {

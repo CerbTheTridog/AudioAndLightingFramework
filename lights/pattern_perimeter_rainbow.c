@@ -57,6 +57,21 @@ static ws2811_led_t color = 0;
 static bool newColor = false;
 static uint32_t intensity = 0;
 
+extern void matrix_shift(ws2811_led_t *matrix, const uint32_t matrix_length, const int direction);
+extern void matrix_rotate(ws2811_led_t *matrix, const uint32_t matrix_length, const int direction);
+extern void matrix_to_ledstring(ws2811_led_t *matrix, ws2811_led_t *ledstring, uint32_t length, bool invert);
+
+
+/* Circularly linked list. */
+struct advanced_led {
+    /* This doesn't change, as it is the base color */
+    ws2811_led_t base_color;
+    ws2811_led_t color; /* Base Color * brightness/100 */
+    uint32_t brightness;
+    struct advanced_led *next;
+};
+
+static struct advanced_led *head = NULL;
 /* A new color has been injected. What happens to old color? */
 ws2811_return_t
 perimeter_rainbow_inject(ws2811_led_t in_color, uint32_t in_intensity)
@@ -69,6 +84,116 @@ perimeter_rainbow_inject(ws2811_led_t in_color, uint32_t in_intensity)
     return ret;
 }
 
+uint32_t get_red(ws2811_led_t color)
+{
+    return (color & 0xFF0000) >> 16;
+}
+
+uint32_t get_green(ws2811_led_t color)
+{
+    return (color & 0x00FF00) >> 8;
+}
+
+uint32_t get_blue(ws2811_led_t color)
+{
+    return (color & 0x0000FF);
+}
+
+ws2811_led_t
+get_ws2811_led_color(uint32_t red, uint32_t green, uint32_t blue)
+{
+    return ((ws2811_led_t)(red << 16) + (ws2811_led_t)(green << 8) + (ws2811_led_t)blue);
+}
+
+ws2811_led_t
+get_ws2811_led_with_brightness(ws2811_led_t color, uint32_t brightness)
+{
+    double red = (double) get_red(color);
+    double green = (double)get_green(color);
+    double blue = (double)get_blue(color);
+    red   = red * (double)((double)brightness/100.0);
+    green = green * (double)((double)brightness/100.0);
+    blue  = blue * (double)((double)brightness/100.0);
+    return get_ws2811_led_color((uint32_t)red, (uint32_t)green, (uint32_t)blue);
+}
+
+void
+clear_advanced_led()
+{
+    struct advanced_led *curr = head->next;
+    head->next = NULL;
+
+    do {
+        struct advanced_led *next = curr->next;
+        free(curr);
+        curr = next;
+    }
+    while (curr->next != NULL);
+    free(curr);
+    head = NULL;
+}
+
+/* Always inserts at end. Un-ordered list */
+void insert_color(ws2811_led_t color, uint32_t brightness)
+{
+    struct advanced_led *newLed = calloc(1, sizeof(struct advanced_led));
+    newLed->base_color = color;
+    newLed->brightness = brightness;
+    newLed->color = get_ws2811_led_with_brightness(newLed->base_color, newLed->brightness);
+    newLed->next = NULL;
+
+    /* Nothing in list yet */
+    if (head == NULL) {
+        head = newLed;
+        newLed->next = head;
+    }
+    else {
+        struct advanced_led *curr = head;
+        /* Start at curr == HEAD */
+        while (curr->next != head) {
+            curr = curr->next;
+        }
+        newLed->next = head;
+        curr->next = newLed;
+    }
+}
+
+void
+advanced_led_to_matrix(ws2811_led_t *matrix)
+{
+    struct advanced_led *curr = head;
+    uint32_t matrix_index = 0;
+    do {
+        memcpy(&matrix[matrix_index++], &curr->color, sizeof(ws2811_led_t));
+        //matrix_index++;
+        curr = curr->next;
+    } while (curr->next != head);
+}
+
+void
+initialize_advanced_led(struct pattern *pattern)
+{
+    uint32_t color = 0;
+    // For each color
+    for (uint32_t i = 0; i < pattern->matrix_length; i++) {
+        // for each led in pulseWidth
+        for (uint32_t j = 0; j < pattern->pulseWidth; j++) {
+            if (i == pattern->matrix_length) {
+                break;
+            }
+            insert_color(colors[color], pattern->max_brightness);
+            i++;
+        }
+        i--; // XXX: gross
+        color = (color < 7) ? color + 1 : 0;
+    }
+
+    /* Fill in the end */
+    if (pattern->matrix_length % pattern->pulseWidth != 0) {
+        insert_color(colors[color], pattern->max_brightness);
+    }
+}
+
 /* Run the threaded loop */
 void *
 matrix_run3(void *vargp)
@@ -79,25 +204,25 @@ matrix_run3(void *vargp)
     assert(pattern->running);
 
     // First, fill initial pattern
-    uint32_t led, color, width;
-    color = 0;
-    uint32_t led_count_ch1 = pattern->ledstring->channel[0].count;
-    //uint32_t led_count_ch2 = pattern->ledstring->channel[1].count;
-    assert(led_count_ch1 > pattern->pulseWidth);
+    assert(pattern->matrix_length > pattern->pulseWidth);
     assert(pattern->pulseWidth != 0);
-    // XXX: FIX led_count_ch2
-    for (led = 0; led < led_count_ch1; ) {
-        for (width = 0; width < pattern->pulseWidth; width++) {
-            if (led == led_count_ch1) {
-                break;
-            }
-            pattern->ledstring->channel[0].leds[led] = colors[color];   
-            pattern->ledstring->channel[1].leds[led] = colors[color];
-            led++;
-        }
-        color = (color < 7) ? color + 1: 0;
 
-    }
+    /* Give the array it's starting colors */
+    initialize_advanced_led(pattern);
+
+    /* Convert from advanced led to a matrix */
+    advanced_led_to_matrix(pattern->matrix);
+    
+    /* Or ignore matrix entirely and ONLY use advanced_led */
+    matrix_to_ledstring(pattern->ledstring->channel[0].leds,
+                        pattern->matrix,
+                        pattern->ledstring->channel[0].count,
+                        false);
+
+    matrix_to_ledstring(pattern->ledstring->channel[1].leds,
+                        pattern->matrix + pattern->ledstring->channel[0].count,
+                        pattern->ledstring->channel[1].count,
+                        true);
 
     if ((ret = ws2811_render(pattern->ledstring)) != WS2811_SUCCESS) {
         log_error("ws2811_renderer failed: %s", ws2811_get_return_t_str(ret));
@@ -106,12 +231,41 @@ matrix_run3(void *vargp)
     }
 
     while (pattern->running)
-    {   
-        ws2811_led_t buffer1 = pattern->ledstring->channel[0].leds[led_count_ch1-1];
-        ws2811_led_t buffer2 = pattern->ledstring->channel[1].leds[led_count_ch1-1];
-        move_lights(pattern, 1);
-        pattern->ledstring->channel[0].leds[0] = buffer1;
-        pattern->ledstring->channel[1].leds[0] = buffer2;
+    {
+        /* Starts with advanced led's all full. First iteration is head, then head moves forward one.
+         * Circularly linked list;
+         */
+        if (newColor) {
+            /* Bright up one color at a time, through whole strip */
+            struct advanced_led *curr = head;
+            do {
+                if ((color == colors[COLOR_NONE]) || curr->base_color == color) {
+                    curr->brightness = intensity;
+                    curr->color = get_ws2811_led_with_brightness(curr->base_color, curr->brightness);
+                }
+                curr = curr->next;
+            }
+            while (curr->next != head);
+            newColor = false;
+        }
+        
+        /* Rotate head */
+        head = head->next;
+
+        /* Convert from advanced led to a matrix */
+        advanced_led_to_matrix(pattern->matrix);
+
+        matrix_to_ledstring(pattern->ledstring->channel[0].leds,
+                            pattern->matrix, 
+                            pattern->ledstring->channel[0].count,
+                            false);
+
+        matrix_to_ledstring(pattern->ledstring->channel[1].leds,
+                            pattern->matrix + pattern->ledstring->channel[0].count,
+                            pattern->ledstring->channel[1].count,
+                            true);
+
+
         if ((ret = ws2811_render(pattern->ledstring)) != WS2811_SUCCESS) {
             log_error("ws2811_renderer failed: %s", ws2811_get_return_t_str(ret));
             // XXX: This should cause some sort of fatal error to propogate upwards
@@ -120,6 +274,9 @@ matrix_run3(void *vargp)
         usleep(1000000 / pattern->movement_rate);
     }
 
+    if (ret == WS2811_SUCCESS) {
+        return NULL;
+    }
     return NULL;
 }
 
@@ -219,9 +376,11 @@ perimeter_rainbow_create(struct pattern *pattern)
     pattern->running = true;
     pattern->paused = true;
     pattern->pulseWidth = 0;
-    pattern->name = calloc(256, sizeof(char));
-    strcpy(pattern->name, "Perimiter Rainbow");
-    //(*pattern)->name = "Perimeter Rainbow";
+    //pattern->name = calloc(256, sizeof(char));
+    strcpy(pattern->name, "Perimeter Rainbow");
+    //pattern->name = "Perimiter Rainbow";
+    pattern->matrix_length = pattern->ledstring->channel[0].count + pattern->ledstring->channel[1].count;
+    pattern->matrix = calloc(pattern->matrix_length, sizeof(ws2811_led_t));
     return WS2811_SUCCESS;
 }   
 
@@ -230,7 +389,11 @@ perimeter_rainbow_delete(struct pattern *pattern)
 {
     log_trace("perimeter_rainbow_delete()");
     log_debug("Pattern %s: Freeing objects", pattern->name);
-    free(pattern->name);
-    pattern->name = NULL;
+    clear_advanced_led();
+    //free(pattern->name);
+    //pattern->name = NULL;
+    free(pattern->matrix);
+    pattern->matrix = NULL;
+    pattern->matrix_length = 0;
     return WS2811_SUCCESS;
 }
