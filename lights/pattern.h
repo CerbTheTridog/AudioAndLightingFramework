@@ -9,7 +9,8 @@ extern "C" {
 #include <stdbool.h>
 #include <pthread.h>
 #include <assert.h>
-#include "log.h"
+#include "../log/log.h"
+
 #define TARGET_FREQ             WS2811_TARGET_FREQ
 #define GPIO_PIN_ONE            18
 #define GPIO_PIN_TWO            13

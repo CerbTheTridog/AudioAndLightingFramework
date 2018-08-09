@@ -35,7 +35,7 @@ Import(['clean_envs'])
 
 tools_env = clean_envs['userspace'].Clone()
 
-tools_env.Library('./lib/libfft', ['lib/libfft.c'])
+#tools_env.Library('./lib/libfft', ['lib/libfft.c'])
 
 audio_srcs = Split('''
     beatmatch.cpp

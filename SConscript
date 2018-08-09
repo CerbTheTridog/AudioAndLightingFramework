@@ -35,13 +35,12 @@ Import(['clean_envs'])
 
 tools_env = clean_envs['userspace'].Clone()
 
+tools_env['LIBS'].append('accessories/libaccessories.a')
 tools_env['LIBS'].append('lights/liblights.a')
 tools_env['LIBS'].append('lights/rpi_ws281x/libws2811.a')
 tools_env['LIBS'].append('audio/libaudio.a')
 tools_env['LIBS'].append('audio/lib/libfft.a')
-#srcs = Split('''
-#    beatmatchtest.cpp
-#''')
+tools_env['LIBS'].append('log/log.o')
 
 srcs = Split('''
     main.cpp
@@ -57,8 +56,8 @@ for src in srcs:
 
 
 # Additional Compiler Flags
-additionalFlags = tools_env.ParseFlags("-Ilights -Iaudio -Ilights/rpi_ws281x -Iaudio/lib -g -O0")
-tools_env.MergeFlags(additionalFlags)
+#additionalFlags = tools_env.ParseFlags("-Ilights -Iaudio -Ilights/rpi_ws281x -Iaudio/lib -Iaccessories -Ilog -g -O0")
+#tools_env.MergeFlags(additionalFlags)
 
 test = tools_env.Program('test', objs + tools_env['LIBS'], LIBS=tools_env['LIBS'], CCFLAGS=tools_env['CCFLAGS'])
 

@@ -77,16 +77,27 @@ if env['TOOLCHAIN'] != '':
     env['AR'] = env['TOOLCHAIN'] + '-ar'
 Export(['clean_envs'])
 
-additionalFlags = env.ParseFlags("-Ilights -Iaudio -Ilights/rpi_ws281x -Iaudio/lib ")
-env.MergeFlags(additionalFlags)
-
 #from pprint import pprint
 #pprint(vars(env))
 
-subdirs = ['/home/pi/AudioAndLightingFramework/lights/rpi_ws281x',
+subdirs = ['/home/pi/AudioAndLightingFramework/log',
+           '/home/pi/AudioAndLightingFramework/accessories',
+           '/home/pi/AudioAndLightingFramework/lights/rpi_ws281x',
            '/home/pi/AudioAndLightingFramework/lights',
            '/home/pi/AudioAndLightingFramework/audio',
+           '/home/pi/AudioAndLightingFramework/audio/lib',
            '/home/pi/AudioAndLightingFramework']
+
+#top_dir="/home/pi/AudioAndLightingFramework"
+#additionalFlags = env.ParseFlags("-Ilights -Iaudio -Ilights/rpi_ws281x -Iaudio/lib -I accessories -Ilog")
+#env.MergeFlags(additionalFlags)
+
+all_includes = ""
+for i in subdirs:
+    all_includes = all_includes + "-I" + i + " " 
+
+additionalFlags = env.ParseFlags(all_includes)
+env.MergeFlags(additionalFlags)
 
 for subdir in subdirs:
         SConscript(os.path.join(subdir, 'SConscript'), exports = ['clean_envs'])

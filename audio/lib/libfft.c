@@ -22,6 +22,7 @@ extern "C"{
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include "log.h"
 
 #define MAXFFTSIZE 32768
 #define LOG2_MAXFFTSIZE 15
@@ -41,13 +42,13 @@ void *initfft( int b ) {
 
     fft = (struct fft_s *) malloc( sizeof( struct fft_s ) );
     if( !fft ) {
-        fprintf( stderr, "Could not allocate for FFT.\n" );
+        log_error("Could not allocate for FFT.\n");
         exit(1);
     }
 
     fft->bits = b;
     if ( fft->bits > LOG2_MAXFFTSIZE ) {
-        fprintf( stderr, "%d is too many bits, max is %d\n", fft->bits, LOG2_MAXFFTSIZE );
+        log_error("%d is too many bits, max is %d\n", fft->bits, LOG2_MAXFFTSIZE);
         exit( 1 );
     }
 

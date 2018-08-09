@@ -35,17 +35,13 @@ Import(['clean_envs'])
 
 tools_env = clean_envs['userspace'].Clone()
 
-lights_srcs = Split('''
-    pattern_rainbow.c
-    pattern_pulse.c
-    pattern_perimeter_rainbow.c
-    pattern_static_color.c
+accessories_srcs = Split('''
+    wifi_plug.cpp
 ''')
 
-lights_lib = tools_env.Library('lights', lights_srcs)
+accessories_lib = tools_env.Library('accessories', accessories_srcs)
 
-tools_env['LIBS'].append('rpi_ws281x/libws2811.a')
-tools_env['LIBS'].append(lights_lib)
+tools_env['LIBS'].append(accessories_lib)
 
 if ARGUMENTS.get('VERBOSE') != '1':
     tools_env['CCCOMSTR'] = "Compiling $TARGET"

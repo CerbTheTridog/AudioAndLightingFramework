@@ -51,7 +51,7 @@
 
 #include "rpi_ws281x/ws2811.h"
 #include "pattern_pulse.h"
-#include "log.h"
+#include "../log/log.h"
 
 static ws2811_led_t color = 0;
 static bool newColor = false;

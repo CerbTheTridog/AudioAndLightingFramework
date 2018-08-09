@@ -1,5 +1,5 @@
 #
-# SConscript
+# SConstruct
 #
 # Copyright (c) 2014 Jeremy Garff <jer @ jers.net>
 #
@@ -15,7 +15,7 @@
 #         provided with the distribution.
 #     3.  Neither the name of the owner nor the names of its contributors may be used to endorse
 #         or promote products derived from this software without specific prior written permission.
-#
+# 
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 # IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
 # FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE
@@ -26,27 +26,64 @@
 # OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-print "=================================="
-print "= Reading lights SConscript File ="
-print "=================================="
-print 
 
-Import(['clean_envs'])
+import os
 
-tools_env = clean_envs['userspace'].Clone()
+opts = Variables()
+opts.Add(BoolVariable('V',
+                      'Verbose build',
+                      False))
 
-lights_srcs = Split('''
-    pattern_rainbow.c
-    pattern_pulse.c
-    pattern_perimeter_rainbow.c
-    pattern_static_color.c
-''')
+opts.Add('TOOLCHAIN',
+         'Set toolchain for cross compilation (e.g. arm-linux-gnueabihf)',
+         '')
 
-lights_lib = tools_env.Library('lights', lights_srcs)
+platforms = [ 
+    [
+        'userspace',            # Target Name
+        [ 'linux' ],            # Scons tool (linux, avr, etc.)
+        {                       # Special environment setup
+            'CPPPATH' : [
+            ],
+            'LINKFLAGS' : [
+                "-lrt",
+                "-lpthread",
+            ],
+            'CCFLAGS' : [
+                "-g",
+                "-O0",
+            ],
+        },
+    ], 
+]
 
-tools_env['LIBS'].append('rpi_ws281x/libws2811.a')
-tools_env['LIBS'].append(lights_lib)
+clean_envs = {}
+for platform, tool, flags in platforms:
+    env = Environment(
+        options = opts,
+        tools = tool,
+        toolpath = ['.'],
+        ENV = {'PATH' : os.environ['PATH']},
+        LIBS = [],
+    )
+    env.MergeFlags(flags)
+    clean_envs[platform] = env
 
-if ARGUMENTS.get('VERBOSE') != '1':
-    tools_env['CCCOMSTR'] = "Compiling $TARGET"
-    tools_env['LINKCOMSTR'] = "Linking $TARGET"
+Help(opts.GenerateHelpText(clean_envs))
+
+if env['TOOLCHAIN'] != '':
+    env['CC'] = env['TOOLCHAIN'] + '-gcc'
+    env['AR'] = env['TOOLCHAIN'] + '-ar'
+Export(['clean_envs'])
+
+#from pprint import pprint
+#pprint(vars(env))
+
+additionalFlags = env.ParseFlags("-I/home/pi/AudioAndLightingFramework/log/")
+env.MergeFlags(additionalFlags)
+
+
+subdirs = ['/home/pi/AudioAndLightingFramework/audio/lib']
+
+for subdir in subdirs:
+        SConscript(os.path.join(subdir, 'SConscript'), exports = ['clean_envs'])

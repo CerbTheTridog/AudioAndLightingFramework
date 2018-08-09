@@ -242,6 +242,7 @@ matrix_run3(void *vargp)
                 if ((color == colors[COLOR_NONE]) || curr->base_color == color) {
                     curr->brightness = intensity;
                     curr->color = get_ws2811_led_with_brightness(curr->base_color, curr->brightness);
+                    printf("%d %d\n", curr->color, curr->brightness);
                 }
                 curr = curr->next;
             }

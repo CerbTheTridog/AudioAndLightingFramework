@@ -1,5 +1,5 @@
 #
-# SConscript
+# linux.py
 #
 # Copyright (c) 2014 Jeremy Garff <jer @ jers.net>
 #
@@ -15,7 +15,7 @@
 #         provided with the distribution.
 #     3.  Neither the name of the owner nor the names of its contributors may be used to endorse
 #         or promote products derived from this software without specific prior written permission.
-#
+# 
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 # IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
 # FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE
@@ -26,27 +26,51 @@
 # OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
-print "=================================="
-print "= Reading lights SConscript File ="
-print "=================================="
-print 
+import SCons
+import string
+import array
+import os
 
-Import(['clean_envs'])
+tools = ['gcc', 'g++', 'gnulink', 'ar', 'gas']
 
-tools_env = clean_envs['userspace'].Clone()
 
-lights_srcs = Split('''
-    pattern_rainbow.c
-    pattern_pulse.c
-    pattern_perimeter_rainbow.c
-    pattern_static_color.c
-''')
+def linux_tools(env):
+    for tool in tools:
+        env.Tool(tool)
 
-lights_lib = tools_env.Library('lights', lights_srcs)
+    if not env['V']:
+        env['ARCOMSTR']      = 'AR      ${TARGET}'
+        env['ASCOMSTR']      = 'AS      ${TARGET}'
+        env['CCCOMSTR']      = 'CC      ${TARGET}'
+        env['CXXCOMSTR']     = 'C++     ${TARGET}'
+        env['LINKCOMSTR']    = 'LINK    ${TARGET}'
+        env['RANLIBCOMSTR']  = 'RANLIB  ${TARGET}'
 
-tools_env['LIBS'].append('rpi_ws281x/libws2811.a')
-tools_env['LIBS'].append(lights_lib)
+def linux_flags(env):
+    env.MergeFlags({
+        'CPPFLAGS' : '''
+        '''.split(),
+    }),
+    env.MergeFlags({
+        'LINKFLAGS' : '''
+        '''.split()
+    })
 
-if ARGUMENTS.get('VERBOSE') != '1':
-    tools_env['CCCOMSTR'] = "Compiling $TARGET"
-    tools_env['LINKCOMSTR'] = "Linking $TARGET"
+
+def linux_builders(env):
+    env.Append(BUILDERS = {
+        'Program' : SCons.Builder.Builder(
+            action = SCons.Action.Action('${LINK} -o ${TARGET} ${SOURCES} ${LINKFLAGS}',
+                                         '${LINKCOMSTR}'),
+        ),
+    })
+    return 1
+
+
+# The following are required functions by SCons when incorporating through tools
+def exists(env):
+    return 1
+
+def generate(env, **kwargs):
+    [f(env) for f in (linux_tools, linux_flags, linux_builders)]
+

@@ -42,8 +42,8 @@ static char VERSION[] = "0.0.6";
 #include <signal.h>
 #include <stdarg.h>
 #include <getopt.h>
-
-
+#include <string>
+#include <iostream>
 #include "clk.h"
 #include "gpio.h"
 #include "dma.h"
@@ -62,9 +62,10 @@ static char VERSION[] = "0.0.6";
 #include "beatmatchevent.h"
 #include "audio/lib/libfft.h"
 
+#include "wifi_plug.h"
 
-
-
+extern int turn_on_wifi_plug(const std::string&);
+extern int turn_off_wifi_plug(const std::string&);
 /*
 	PWM0, which can be set to use GPIOs 12, 18, 40, and 52.
 	Only 12 (pin 32) and 18 (pin 12) are available on the B+/2B/3B
@@ -88,6 +89,7 @@ static char VERSION[] = "0.0.6";
 #define LED_COUNT               672
 #define MOVEMENT_RATE           100
 #define PULSE_WIDTH             10
+//#define WIFI_PLUG               "10.0.0.139"
 
 enum ProgramList {
     PULSE,
@@ -100,11 +102,12 @@ enum ProgramList {
     STATIC_AUDIO
 };
 
-static int clear_on_exit = 0;
+static int clear_on_exit = 1;
 static struct pattern *pattern;
 static double movement_rate = MOVEMENT_RATE;
 static bool maintain_colors = false;
 static uint32_t pulse_width = PULSE_WIDTH;
+static const std::string wifi_plug_host = "10.0.0.139";
 
 // Do not do anything with power source
 static bool power_source = false;
@@ -123,25 +126,15 @@ static void ctrl_c_handler(int signum)
 
 static void setup_handlers(void)
 {
-    //void signalHandler(int signum);
-    void floatGet(float *input, int size);
-    void bmeColorGet(int color, int intensity);
-
     struct sigaction action;
     action.sa_handler = ctrl_c_handler;
     sigemptyset (&action.sa_mask);
     action.sa_flags=0;
 
-    //struct sigaction sa =
-    //{
-     //   .sa_handler = ctrl_c_handler,
-    //};
-    
     sigaction(SIGINT, &action, NULL);
     sigaction(SIGTERM, &action, NULL);
     sigaction(SIGHUP, &action, NULL);
 }
-
 
 void parseargs(int argc, char **argv)
 {
@@ -151,8 +144,8 @@ void parseargs(int argc, char **argv)
 	static struct option longopts[] =
 	{
 		{"help", no_argument, 0, 'h'},
-		{"clear", no_argument, 0, 'c'},
 		{"version", no_argument, 0, 'v'},
+        {"clear", required_argument, 0, 'c'},
         {"program", required_argument, 0, 'p'},
         {"movement_rate", required_argument, 0, 'm'},
         {"sleep_rate", required_argument, 0, 'S'},
@@ -180,7 +173,7 @@ void parseargs(int argc, char **argv)
             fprintf(stderr, "%s version %s\n", argv[0], VERSION);
 			fprintf(stderr, "Usage: %s \n"
 				"-h (--help)    - this information\n"
-				"-c (--clear)   - clear matrix on exit.\n"
+				"-c (--clear) [0,1]   - 0 - Do not clear matrix on exit.\n"
 				"-v (--version) - version information\n"
                 "-p (--program) - Which program to run\n"
                 "-m (--movement_rate)  - The number of seconds for an LED to move from one to the next\n"
@@ -198,7 +191,13 @@ void parseargs(int argc, char **argv)
             }
             break;
 		case 'c':
-			clear_on_exit=1;
+			if (optarg) {
+                clear_on_exit = atoi(optarg);
+                if (clear_on_exit != 0 && clear_on_exit != 1) {
+                    printf("Clear on Exit can only be enabled or disabled. Exiting\n");
+                    exit(-1);
+                }
+            }
 			break;
 
 		case 'p':
@@ -214,21 +213,18 @@ void parseargs(int argc, char **argv)
         case 'S':
             if (optarg) {
                 sleep_rate = atof(optarg) * 1000000;
-                printf("SLEEPING FOR %d\n", sleep_rate);
             }
             break;
         case 'X':
-            printf("FARTS");
             if (optarg) {
-                printf("FUCKS");
                 switch (atoi(optarg)) {
                 case 1: 
                     printf("Turning on power source and exiting\n");
-                    system("/home/pi/tplink-smartplug-master/tplink_smartplug.py -t 10.0.0.164 -c on");
+                    turn_on_wifi_plug(wifi_plug_host);
                     exit(1);
                 case 2:
                     printf("Turning off power source and exiting\n");
-                    system("/home/pi/tplink-smartplug-master/tplink_smartplug.py -t 10.0.0.164 -c off");
+                    turn_off_wifi_plug(wifi_plug_host);
                     exit(1);
                 case 3:
                     printf("Power Source set to automatic\n");
@@ -269,9 +265,11 @@ void bmePerimeterColorInject(int color, int intensity)
 {
     if (color) {};
     if (pattern) {
+        printf("Intensity: %d\n", intensity);
         pattern->func_inject(colors[COLOR_NONE], intensity);
     }
 }
+
 
 int main(int argc, char *argv[])
 {
@@ -290,7 +288,7 @@ int main(int argc, char *argv[])
     /* Turn on power source */
     // XXX: Do this better
     if (power_source)
-        system("/home/pi/tplink-smartplug-master/tplink_smartplug.py -t 10.0.0.164 -c on");
+        turn_on_wifi_plug(wifi_plug_host);
 
     if ((ret = configure_ledstring_double(pattern, LED_COUNT, LED_COUNT)) != WS2811_SUCCESS) {
         log_fatal("Bad Stuff");
@@ -324,6 +322,7 @@ int main(int argc, char *argv[])
         sleep_rate = 600000;
     }
 
+    pattern->max_brightness = 100;
     pattern->pulseWidth = pulse_width;
     pattern->clear_on_exit = clear_on_exit;
     pattern->maintainColor = maintain_colors;
@@ -360,9 +359,9 @@ int main(int argc, char *argv[])
         uint32_t color = rand() & colors_size;
         uint32_t intensity = 100;
         int step = 1;
-        bool a = false;
+        int a = 3;
         while (running) {
-            if (a) {
+            if (a== 0) {
                 color = rand() % colors_size;
                 intensity = rand()%2;
                 if (rand() % 2 == 0) {
@@ -372,7 +371,7 @@ int main(int argc, char *argv[])
                     intensity = 50;
                 }
             }
-            else {
+            else if (a==1){
                 if (intensity == 30) {
                     step = 2;
                 }
@@ -381,9 +380,16 @@ int main(int argc, char *argv[])
                 }
                 intensity += step;
             }
-            if (rand() % 25 == 0) {
-                a = !a;
+            else if (a==2) {
+                color = rand() % colors_size;
+                intensity = rand() % 100;
             }
+            else if(a==3) {
+                ;
+            }
+            //if (rand() % 25 == 0) {
+            //    a = !a;
+            //}
             pattern->func_inject(colors[color], intensity);
             usleep(sleep_rate);
         }
@@ -445,7 +451,7 @@ int main(int argc, char *argv[])
     free(pattern);
 
     if (power_source)
-        system("/home/pi/tplink-smartplug-master/tplink_smartplug.py -t 10.0.0.164 -c off");
+        turn_off_wifi_plug(wifi_plug_host);
     return ret;
-}
+//}
 }
