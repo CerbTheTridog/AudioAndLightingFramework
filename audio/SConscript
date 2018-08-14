@@ -35,14 +35,12 @@ Import(['clean_envs'])
 
 tools_env = clean_envs['userspace'].Clone()
 
-tools_env.Library('libfft', ['lib/libfft.c'])
-
 audio_srcs = Split('''
     beatmatch.cpp
     beatmatchevent.cpp
 ''')
 
-audio_lib = tools_env.Library('audio', audio_srcs ,LIBS=['libfft', './lib/libportaudio.a'])
+audio_lib = tools_env.Library('audio', audio_srcs ,LIBS=['libfft', './libportaudio.a'])
 
 tools_env['LIBS'].append(audio_lib)
 

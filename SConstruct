@@ -84,6 +84,7 @@ subdirs = ['/home/pi/AudioAndLightingFramework/log',
            '/home/pi/AudioAndLightingFramework/accessories',
            '/home/pi/AudioAndLightingFramework/lights/rpi_ws281x',
            '/home/pi/AudioAndLightingFramework/lights',
+           '/home/pi/AudioAndLightingFramework/audio/lib',
            '/home/pi/AudioAndLightingFramework/audio',
            '/home/pi/AudioAndLightingFramework']
 
