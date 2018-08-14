@@ -42,7 +42,7 @@ audio_srcs = Split('''
     beatmatchevent.cpp
 ''')
 
-audio_lib = tools_env.Library('audio', audio_srcs, LIBS=['libfft'])
+audio_lib = tools_env.Library('audio', audio_srcs, LIBS=['libfft', './libportaudio.a'])
 
 tools_env['LIBS'].append(audio_lib)
 
