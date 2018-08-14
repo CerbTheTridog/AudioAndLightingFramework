@@ -35,6 +35,8 @@ Import(['clean_envs'])
 
 tools_env = clean_envs['userspace'].Clone()
 
+#SConscript(['rpi_ws281x/SConscript'])
+
 lights_srcs = Split('''
     pattern_rainbow.c
     pattern_pulse.c

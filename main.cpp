@@ -44,10 +44,6 @@ static char VERSION[] = "0.0.6";
 #include <getopt.h>
 #include <string>
 #include <iostream>
-#include "clk.h"
-#include "gpio.h"
-#include "dma.h"
-#include "pwm.h"
 #include "version.h"
 
 #include "ws2811.h"
@@ -453,5 +449,4 @@ int main(int argc, char *argv[])
     if (power_source)
         turn_off_wifi_plug(wifi_plug_host);
     return ret;
-//}
 }
