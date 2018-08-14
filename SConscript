@@ -39,6 +39,7 @@ tools_env['LIBS'].append('accessories/libaccessories.a')
 tools_env['LIBS'].append('lights/liblights.a')
 tools_env['LIBS'].append('lights/rpi_ws281x/libws2811.a')
 tools_env['LIBS'].append('audio/libaudio.a')
+tools_env['LIBS'].append('audio/libportaudio.a')
 tools_env['LIBS'].append('audio/lib/libfft.a')
 tools_env['LIBS'].append('log/log.o')
 

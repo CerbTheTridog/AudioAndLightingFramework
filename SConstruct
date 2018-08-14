@@ -48,7 +48,7 @@ platforms = [
             'LINKFLAGS' : [
                 "-lrt",
                 "-lpthread",
-                "-lportaudio",
+                "-lasound",
             ],
             'CCFLAGS' : [
                 "-g",
