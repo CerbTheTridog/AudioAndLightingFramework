@@ -1,3 +1,0 @@
-
-#include <asihpi/hpi.h>
-
