@@ -228,6 +228,9 @@ matrix_rotate(ws2811_led_t *matrix, const uint32_t matrix_length, const int dire
 inline void
 matrix_to_ledstring(ws2811_led_t *ledstring, ws2811_led_t *matrix, uint32_t length, bool invert)
 {
+    if (length == 0) {
+        return;
+    }
     if (invert) {
         uint32_t i = length-1;
         uint32_t j = 0;
