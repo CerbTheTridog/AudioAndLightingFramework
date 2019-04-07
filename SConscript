@@ -61,5 +61,15 @@ for src in srcs:
 #tools_env.MergeFlags(additionalFlags)
 
 test = tools_env.Program('test', objs + tools_env['LIBS'], LIBS=tools_env['LIBS'], CCFLAGS=tools_env['CCFLAGS'])
-
 tools_env.Default([test])
+
+srcs = Split('''
+    lighting_pi.cpp
+''')    
+
+objs = []
+for src in srcs:
+    objs.append(tools_env.Object(src))
+
+test2 = tools_env.Program('test2', objs + tools_env['LIBS'], LIBS=tools_env['LIBS'], CCFLAGS=tools_env['CCFLAGS'])
+tools_env.Default([test2])

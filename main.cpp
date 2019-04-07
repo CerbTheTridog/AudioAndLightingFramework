@@ -82,7 +82,7 @@ extern int turn_off_wifi_plug(const std::string&);
 
 #define SLEEP                   .5
 /* 672 per strip in living room */
-#define LED_COUNT               672
+#define LED_COUNT               300
 #define MOVEMENT_RATE           100
 #define PULSE_WIDTH             10
 //#define WIFI_PLUG               "10.0.0.139"
@@ -141,8 +141,8 @@ void parseargs(int argc, char **argv)
 	{
 		{"help", no_argument, 0, 'h'},
 		{"version", no_argument, 0, 'v'},
-        {"clear", required_argument, 0, 'c'},
-        {"program", required_argument, 0, 'p'},
+        	{"clear", required_argument, 0, 'c'},
+        	{"program", required_argument, 0, 'p'},
         {"movement_rate", required_argument, 0, 'm'},
         {"sleep_rate", required_argument, 0, 'S'},
         {"pulse_width", required_argument, 0, 'P'},
@@ -279,14 +279,15 @@ int main(int argc, char *argv[])
     parseargs(argc, argv);
     /* Handlers should only be caught in this file. And commands propogate down */
     setup_handlers();
-    pattern = create_pattern();
+    if (program != 7) 
+	    pattern = create_pattern();
 
     /* Turn on power source */
     // XXX: Do this better
     if (power_source)
         turn_on_wifi_plug(wifi_plug_host);
 
-    if ((ret = configure_ledstring_double(pattern, LED_COUNT, LED_COUNT)) != WS2811_SUCCESS) {
+    if ((ret = configure_ledstring_double(pattern, LED_COUNT, 0)) != WS2811_SUCCESS) {
         log_fatal("Bad Stuff");
         return ret;
     }
