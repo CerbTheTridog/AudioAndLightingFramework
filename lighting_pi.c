@@ -42,10 +42,11 @@
 #include <getopt.h>
 #include <stdbool.h>
 #include "version.h"
+#include "cl_lights/cl_comm_thread.h"
+
 
 #include "ws2811.h"
 #include "log.h"
-#include "cl_lights/cl_comm_thread.h"
 /*
 	PWM0, which can be set to use GPIOs 12, 18, 40, and 52.
 	Only 12 (pin 32) and 18 (pin 12) are available on the B+/2B/3B
@@ -341,14 +342,12 @@ int main(int argc, char *argv[])
     }
     printf("piController running \n");
     
-    pthread_t comm_thread;
     uint32_t led_array_buf_1[LED_ARRAY_LEN];
     uint32_t led_array_buf_2[LED_ARRAY_LEN];
     uint32_t led_array_buf_3[LED_ARRAY_LEN];
     uint32_t *receiving_array = led_array_buf_1;
     uint32_t *displaying_array = led_array_buf_2;
     pthread_mutex_t recv_disp_ptr_lock = PTHREAD_MUTEX_INITIALIZER;
-    bool new_data = false;
  
     struct comm_thread_params comm_thread_params;
     comm_thread_params.control_pi_ip       = control_pi_ip;
@@ -363,7 +362,8 @@ int main(int argc, char *argv[])
     comm_thread_params.receiving_array     = &receiving_array;
     comm_thread_params.displaying_array    = &displaying_array;
     comm_thread_params.recv_disp_ptr_lock  = &recv_disp_ptr_lock;
-    comm_thread_params.new_data            = &new_data;
+    comm_thread_params.new_data            = false;
+    run_net_comm(&comm_thread_params);
 
     /* receiving_array - The array being written to
      * displaying_array - The array I am displaying OR just finished displaying
@@ -375,15 +375,15 @@ int main(int argc, char *argv[])
      *  that receiving_array points at three and displaying_array still points at two. Thus, I change displaying_array to one, set new_data to false,
      *  and start displaying what is in displaying_array / what is in led_array_buf_1
      */
-    pthread_create(&comm_thread, NULL, run_net_comm_thread, &comm_thread_params);
+
     ledstring = create_ledstring(gpio_pin, led_array_length);   
-    //runNetCom();
-    printf("thread started, joining\n");
     while (running == 1) {
         sleep(1);
 
     }
-    pthread_join(comm_thread, NULL);
+    comm_thread_params.running = false;
+
+    //pthread_join(comm_thread, NULL);
     /* TODO: Each of these should be in it's own thread */
     //struct comm_thread_params *ctp1 = create_comm_thread_params(control_pi_ip, 
     ///       control_pi_port, pi_name, 0, led_array_length);
@@ -394,6 +394,7 @@ int main(int argc, char *argv[])
     //    sleep(1);
     //}
     //pthread_join(thread_id, NULL);
+
     ws2811_fini(ledstring);
     return 0;
 }

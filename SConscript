@@ -42,7 +42,6 @@ tools_env['LIBS'].append('audio/libaudio.a')
 tools_env['LIBS'].append('audio/libportaudio.a')
 tools_env['LIBS'].append('audio/lib/libfft.a')
 tools_env['LIBS'].append('log/log.o')
-
 srcs = Split('''
     main.cpp
 ''')
@@ -64,10 +63,10 @@ test = tools_env.Program('test', objs + tools_env['LIBS'], LIBS=tools_env['LIBS'
 tools_env.Default([test])
 
 srcs = Split('''
-    cl_lights/cl_comm_threads.c
     lighting_pi.c
-
 ''')    
+tools_env['LIBS'].append('cl_lights/libcl_lights.a')
+
 
 objs = []
 for src in srcs:

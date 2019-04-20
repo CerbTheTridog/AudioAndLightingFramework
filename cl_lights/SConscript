@@ -27,7 +27,7 @@
 #
 
 print "=================================="
-print "= Reading log SConscript File ="
+print "= Reading cl_lights SConscript File ="
 print "=================================="
 print 
 
@@ -35,13 +35,13 @@ Import(['clean_envs'])
 
 tools_env = clean_envs['userspace'].Clone()
 
-log_srcs = Split('''
-    log.c
+cl_lights_srcs = Split('''
+    cl_comm_thread.c    
 ''')
 
-log_lib = tools_env.Library('log', log_srcs)
+cl_lights_lib = tools_env.Library('cl_lights', cl_lights_srcs)
 
-tools_env['LIBS'].append(log_lib)
+tools_env['LIBS'].append(cl_lights_lib)
 
 if ARGUMENTS.get('VERBOSE') != '1':
     tools_env['CCCOMSTR'] = "Compiling $TARGET"

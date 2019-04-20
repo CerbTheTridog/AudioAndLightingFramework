@@ -1,6 +1,7 @@
 #include "cl_comm_thread.h"
-
-void
+#include "arpa/inet.h"
+#include <unistd.h>
+    void
 change_receive_buf(struct comm_thread_params *params)
 {
     pthread_mutex_lock(params->recv_disp_ptr_lock);
@@ -17,7 +18,7 @@ change_receive_buf(struct comm_thread_params *params)
     pthread_mutex_unlock(params->recv_disp_ptr_lock);
 }
 
-static void* connect_to_server(int* comSocketIn, struct comm_thread_params *params){
+static void connect_to_server(int* comSocketIn, struct comm_thread_params *params){
     printf("running connectToServer\n");
     
     /* Create recv_buf the same size as the led_array_bufs and write 0's */
@@ -46,12 +47,13 @@ static void* connect_to_server(int* comSocketIn, struct comm_thread_params *para
     if( connect((*comSocketIn), (struct sockaddr *)&serverAddress, sizeof(serverAddress)) < 0)
     {
        printf("\n Error : Connect Failed \n");
-       return ;
+       return;
     } 
     printf("connection established!\n");
+    return;
 }
 
-static void* register_pi(int* comSocketIn, struct comm_thread_params *params)
+static void register_pi(int* comSocketIn, struct comm_thread_params *params)
 {
     struct reg_msg reg_msg = {
         "test pi a",
@@ -59,7 +61,7 @@ static void* register_pi(int* comSocketIn, struct comm_thread_params *params)
     };
     int sent = send((*comSocketIn), (void*)&reg_msg, sizeof(struct reg_msg), 0);
     printf("sent name to server, sent %dbytes\n", sent);
-    int entityNumber;
+    //int entityNumber;
     //recv((*comSocketIn), &entityNumber, sizeof(int), 0);
     //printf("entityNumber received was: %d\n", entityNumber);
 }
@@ -67,14 +69,15 @@ static void* register_pi(int* comSocketIn, struct comm_thread_params *params)
 static void
 receive_data(int *commSocket, struct comm_thread_params *params)
 {
-    while(*params->running) {
+    printf("%p", commSocket);
+    while(params->running) {
         printf("receiving data\n");
         sleep(2);
         change_receive_buf(params);
     }
 }
 
-static void*
+void*
 run_net_comm_thread(void* args)
 {
     
@@ -86,12 +89,13 @@ run_net_comm_thread(void* args)
     register_pi(&commSocket, params); /* XXX: does this actually need params? */
     receive_data(&commSocket, params);
     printf("end runNetCom\n");
+    return NULL;
 }
 
-void* run_net_comm(struct comm_thread_params *params)
+void run_net_comm(struct comm_thread_params *params)
 {
     pthread_t comm_thread;
-    *params->running = true;
+    params->running = true;
     pthread_create(&comm_thread, NULL, run_net_comm_thread, params);    
     printf("thread started\n");
 }

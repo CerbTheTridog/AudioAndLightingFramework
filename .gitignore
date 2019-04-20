@@ -10,3 +10,4 @@
 test
 # Ignore the scons database
 *.sconsign.dblite
+tags
