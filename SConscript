@@ -64,7 +64,9 @@ test = tools_env.Program('test', objs + tools_env['LIBS'], LIBS=tools_env['LIBS'
 tools_env.Default([test])
 
 srcs = Split('''
-    lighting_pi.cpp
+    cl_lights/cl_comm_threads.c
+    lighting_pi.c
+
 ''')    
 
 objs = []

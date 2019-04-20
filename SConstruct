@@ -86,6 +86,7 @@ subdirs = ['/home/pi/AudioAndLightingFramework/log',
            '/home/pi/AudioAndLightingFramework/lights',
            '/home/pi/AudioAndLightingFramework/audio/lib',
            '/home/pi/AudioAndLightingFramework/audio',
+           '/home/pi/AudioAndLightingFramework/cl_lights',
            '/home/pi/AudioAndLightingFramework']
 
 #top_dir="/home/pi/AudioAndLightingFramework"

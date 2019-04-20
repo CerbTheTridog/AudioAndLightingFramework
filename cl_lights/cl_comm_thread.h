@@ -24,7 +24,7 @@ struct comm_thread_params
     uint32_t  **receiving_array;
     uint32_t  **displaying_array;
     pthread_mutex_t *recv_disp_ptr_lock;
-    BOOL * new_data;
+    bool * new_data;
 };
 
 void* run_net_comm_thread(void* args);

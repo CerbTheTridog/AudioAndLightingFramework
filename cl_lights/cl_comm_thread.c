@@ -74,7 +74,8 @@ receive_data(int *commSocket, struct comm_thread_params *params)
     }
 }
 
-void* run_net_comm_thread(void* args){
+void* run_net_comm_thread(void* args)
+{
     
     printf("running runNetCom\n");
     struct comm_thread_params *params = args;
