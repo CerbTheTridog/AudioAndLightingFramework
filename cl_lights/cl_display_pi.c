@@ -21,10 +21,12 @@ int main() {
     uint led_array_buf_1[LED_ARRAY_LEN];
     uint led_array_buf_2[LED_ARRAY_LEN];
     uint led_array_buf_3[LED_ARRAY_LEN];
-    uint *receiving_array;
-    uint32_t *displaying_array;
+    uint *receiving_array = led_array_buf_1;
+    uint32_t *displaying_array = led_array_buf_2;
     char control_pi_ip[] = CONTROL_PI_IP;
     char pi_name[] = PI_NAME;
+    pthread_mutex_t recv_disp_ptr_lock = PTHREAD_MUTEX_INITIALIZER;
+    BOOL new_data = FALSE;
     
     struct comm_thread_params comm_thread_params = {
         control_pi_ip,
@@ -37,7 +39,9 @@ int main() {
         led_array_buf_2,
         led_array_buf_3,
         &receiving_array,
-        &displaying_array
+        &displaying_array,
+        &recv_disp_ptr_lock,
+        &new_data;
     };
     pthread_create(&comm_thread, NULL, run_net_comm_thread, &comm_thread_params);
     

@@ -19,26 +19,45 @@
 struct display_pi {
 	struct reg_msg reg_msg;
 	int socket;
+	pthread_t thread;
+	uint index;
 };
 
 uint led_array_buf_1[LED_ARRAY_LEN];
 uint led_array_buf_2[LED_ARRAY_LEN];
 uint led_array_buf_3[LED_ARRAY_LEN];
 
-struct display_pi pi_list[MAX_CONNECTIONS];
-
+/* Pointers and lock for led buffers */
+pthread_mutex_t rec_send_ptr_lock = PTHREAD_MUTEX_INITIALIZER;
+BOOL new_data; /* investigate semiphores instead of looping and checking this bool */
 uint *recording_array;
 uint *sending_array;
 
-int pi_count = 0;
+/* Data structure and lock for tracking connections */
+pthread_mutex_t pi_list_lock = PTHREAD_MUTEX_INITIALIZER;
+struct display_pi pi_list[MAX_CONNECTIONS];
+uint pi_count = 0;
 
 /* XXX: remove */
 uint recording_count;
 
+void*
+run_conn_th(void* pi_ptr)
+{
+	struct display_pi *pi = pi_ptr;
+	printf("run_conn_th: new thread running, name:%s,  index: %d,  id:%d\n", pi->reg_msg.name, pi->index, pi->thread);
+	while(1) {
+		printf("run_conn_th: running\n");
+		sleep(2);
+	}
+	//pi_list[pi_count].
+}
+
 
 /* XXX: Currently accepts just one connection and checks its reg msg. Needs to
  * also populate directory and then loop to accept more connections */
-void* accept_connections(int *com_sockets){
+void* accept_connections(int *com_sockets)
+{
 	printf("accept_connection running\n");
 	int accept_socket = 0;
 	struct sockaddr_in accept_address;
@@ -47,56 +66,90 @@ void* accept_connections(int *com_sockets){
 	accept_address.sin_family = AF_INET;
 	accept_address.sin_addr.s_addr = htonl(INADDR_ANY);
 	accept_address.sin_port = htons(CONTROL_PI_ACC_PORT);
-
 	int true = 1;
 
 	/* Immediately make port available again */
 	setsockopt(accept_socket, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int));
 
+	/* Bind socket */
 	int toCheck = bind(accept_socket, (struct sockaddr*)&accept_address, sizeof(accept_address));
 	if (toCheck) {
-		printf("to check return was %d, errno was %s\n", toCheck, strerror(errno));
+		printf("[ConnectionAccepter]: to check return was %d, errno was %s\n", toCheck, strerror(errno));
 		return 0;
 	}
 
+	/* Loop through accepting a new connection and starting a thread for it */
 	while (pi_count < MAX_CONNECTIONS) {
+		printf("[ConnectionAccepter]: accepting a new connection\n");
 		int conn_socket = 0;
 		//char sendBuff[1025];
 		//memset(sendBuff, '0', sizeof(sendBuff));
 
+		/* Listen on set up socket */
 		listen(accept_socket, 10);
 		conn_socket = accept(accept_socket, (struct sockaddr*) NULL, NULL);
 		if (conn_socket < 0) {
-			printf("error accepting connection\n");
+			printf("[ConnectionAccepter]: error accepting connection\n");
+			goto err_out;
 		}
 
-		else {
-			printf("connection accepted!\n");
-			struct display_pi* curr_pi = calloc(1, sizeof(struct display_pi));
-			(*curr_pi).socket = conn_socket;
-			pi_list[pi_count] = *curr_pi;
-			pi_count++;
-			struct reg_msg recvd_msg;
-			int recvd_bytes;
+		/* Set up data structures to receive reg_msg */
+		printf("[ConnectionAccepter]: connection accepted!\n");
+		int recvd_bytes;
+		struct display_pi *new_pi = &pi_list[pi_count];
 
-			printf("about to recv\n");
-			recvd_bytes = recv(conn_socket, &recvd_msg, sizeof(struct reg_msg), 0);
-			if (recvd_bytes != sizeof(struct reg_msg)) {
-				printf("did not receive sizeof(reg_msg) chars\n");
-				exit(1);
-			}
-			printf("\n");
-			printf("reg details; %s, %d\n", recvd_msg.name, recvd_msg.strip_number);
-			/* XXX: needs to send confirmation messag */
-			//int sent = send((*curr_p).socket, recvd_msg, sizeof(struct reg_msg), 0);
-			//	printf("recvd %d chars \n", recvd);
-			//const char* constMessage1 = message1;
-			//printf("- %s", recvd_msg);
-			//printf(" -\n");
+		/* Attempt to receive reg_msg */
+		printf("[ConnectionAccepter]: about to recv\n");
+		recvd_bytes = recv(conn_socket, &new_pi->reg_msg, sizeof(struct reg_msg), 0);
+		if (recvd_bytes != sizeof(struct reg_msg)) {
+			printf("[ConnectionAccepter]: did not receive sizeof(reg_msg) chars\n");
+			goto err_out;
 		}
+
+		/* If reg_msg checks out, save pi details to pi list */
+		printf("[ConnectionAccepter]: reg details; %s, %d\n", new_pi->reg_msg.name, new_pi->reg_msg.strip_number);
+		new_pi->socket = conn_socket;
+		new_pi->index = pi_count;
+
+		/* Start up new thread to transmit to this pi */
+		if (pthread_create(&new_pi->thread, NULL, run_conn_th, new_pi) ) {
+			printf("[ConnectionAccepter]: thread creation failed");
+			goto err_out;
+		}
+		pi_count++;
+
+		/* XXX: needs to send confirmation messag */
+		//int sent = send((*curr_p).socket, recvd_msg, sizeof(struct reg_msg), 0);
+		//	printf("recvd %d chars \n", recvd);
+		//const char* constMessage1 = message1;
+		//printf("- %s", recvd_msg);
+		//printf(" -\n");
 	}
 	/* XXX: Should instead periodically check number of open connections and start loop again if needed */
 	printf("[ConnectionAccepter]: Reached MAX_ENTITIES, exiting accepter\n");
+	return;
+
+err_out:
+	printf("Connection accepter erroring out\n");
+	return;
+}
+
+void
+change_record_buf()
+{
+	pthread_mutex_lock(&rec_send_ptr_lock);
+	new_data = TRUE;
+	if (recording_array == led_array_buf_1) {
+		printf("was recording in 1\n");
+		recording_array = (sending_array == led_array_buf_2) ? led_array_buf_3 : led_array_buf_2;		
+	} else if (recording_array == led_array_buf_2) {
+		printf("was recording in 2\n");
+		recording_array = (sending_array == led_array_buf_3) ? led_array_buf_1 : led_array_buf_3;		
+	} else {
+		printf("was recording in 3\n");
+		recording_array = (sending_array == led_array_buf_1) ? led_array_buf_2 : led_array_buf_1;		
+	}
+	pthread_mutex_unlock(&rec_send_ptr_lock);
 }
 
 //main thread starts up accept, comm, and calc threads
@@ -109,7 +162,7 @@ void* accept_connections(int *com_sockets){
 void
 run_color_calc()
 {
-	printf("color calc called, done\n");
+	printf("color calc called\n");
 	uint array_num;
 	while (1) {
 		if (recording_array == led_array_buf_1) {
@@ -123,8 +176,10 @@ run_color_calc()
 		recording_array[0] = array_num;
 		recording_array[1] = recording_count;
 		recording_count += 1;
+		sleep(2);
+		change_record_buf();
 	}
-	change_buf();
+
 }
 
 void* run_conn_accpt(){
@@ -142,30 +197,17 @@ void* run_conn_accpt(){
 	while(1) {
 		accept_connections(com_sockets);
 	}
-
 }
 
 void
 init() {
 	recording_array = led_array_buf_1;
 	sending_array = led_array_buf_2;
-	recording_count = 0;
-	uint i = 0;
-	/* XXX  change to memset */
-	while (i < LED_ARRAY_LEN) {
-		led_array_buf_1[i] = 0;
-		i++;
-	}
-	i = 0;
-	while (i < LED_ARRAY_LEN) {
-		led_array_buf_2[i] = 0;
-		i++;
-	}
-	i = 0;
-	while (i < LED_ARRAY_LEN) {
-		led_array_buf_3[i] = 0;
-		i++;
-	}
+
+	/* Write 0's to all arrays */
+	memset(led_array_buf_1, '0', (LED_ARRAY_LEN * sizeof(uint32_t)));
+	memset(led_array_buf_2, '0', (LED_ARRAY_LEN * sizeof(uint32_t)));
+	memset(led_array_buf_3, '0', (LED_ARRAY_LEN * sizeof(uint32_t)));
 }
 
 //main thread starts up accept, comm, and calc threads

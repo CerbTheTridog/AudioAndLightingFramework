@@ -18,12 +18,13 @@ struct comm_thread_params
     uint32_t    pi_name_length;
     uint32_t    led_array_length;
     uint32_t    strip_number;
-    uint32_t   *led_array_buf1;
-    uint32_t   *led_array_buf2;
-    uint32_t   *led_array_buf3;
+    uint32_t   *led_array_buf_1;
+    uint32_t   *led_array_buf_2;
+    uint32_t   *led_array_buf_3;
     uint32_t  **receiving_array;
     uint32_t  **displaying_array;
     pthread_mutex_t *recv_disp_ptr_lock;
+    BOOL * new_data;
 };
 
 void* run_net_comm_thread(void* args);
