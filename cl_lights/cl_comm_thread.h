@@ -9,6 +9,7 @@
 #include <string.h>
 #include <pthread.h>
 #include "cl_lights.h"
+#include <stdbool.h>
 
 struct comm_thread_params
 {
@@ -24,9 +25,10 @@ struct comm_thread_params
     uint32_t  **receiving_array;
     uint32_t  **displaying_array;
     pthread_mutex_t *recv_disp_ptr_lock;
-    bool * new_data;
+    bool       *new_data;
+    bool       *running;
 };
 
-void* run_net_comm_thread(void* args);
+void* run_net_comm(struct comm_thread_params *params);
 
 #endif

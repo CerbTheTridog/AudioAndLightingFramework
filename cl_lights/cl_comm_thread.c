@@ -64,17 +64,18 @@ static void* register_pi(int* comSocketIn, struct comm_thread_params *params)
     //printf("entityNumber received was: %d\n", entityNumber);
 }
 
-void
+static void
 receive_data(int *commSocket, struct comm_thread_params *params)
 {
-    while(1) {
+    while(*params->running) {
         printf("receiving data\n");
         sleep(2);
         change_receive_buf(params);
     }
 }
 
-void* run_net_comm_thread(void* args)
+static void*
+run_net_comm_thread(void* args)
 {
     
     printf("running runNetCom\n");
@@ -87,3 +88,10 @@ void* run_net_comm_thread(void* args)
     printf("end runNetCom\n");
 }
 
+void* run_net_comm(struct comm_thread_params *params)
+{
+    pthread_t comm_thread;
+    *params->running = true;
+    pthread_create(&comm_thread, NULL, run_net_comm_thread, params);    
+    printf("thread started\n");
+}
