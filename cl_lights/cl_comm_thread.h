@@ -11,6 +11,8 @@
 #include "cl_lights.h"
 #include <stdbool.h>
 
+#define RECEIVE_DELAY 300000 /* microseconds */
+
 struct comm_thread_params
 {
     const char *control_pi_ip;

@@ -1,7 +1,8 @@
 #include "cl_comm_thread.h"
 #include "arpa/inet.h"
 #include <unistd.h>
-    void
+
+void
 change_receive_buf(struct comm_thread_params *params)
 {
     pthread_mutex_lock(params->recv_disp_ptr_lock);
@@ -18,7 +19,8 @@ change_receive_buf(struct comm_thread_params *params)
     pthread_mutex_unlock(params->recv_disp_ptr_lock);
 }
 
-static void connect_to_server(int* comSocketIn, struct comm_thread_params *params){
+static
+void connect_to_server(int* comSocketIn, struct comm_thread_params *params){
     printf("running connectToServer\n");
     
     /* Create recv_buf the same size as the led_array_bufs and write 0's */
@@ -67,13 +69,29 @@ static void register_pi(int* comSocketIn, struct comm_thread_params *params)
 }
 
 static void
+print_rec_buf(struct comm_thread_params *params) {
+    int i = 0;
+    int len = params->led_array_length;
+    printf ("led array: |");
+    while (i < len) {
+        printf("%u,", (*params->receiving_array)[i]);
+        i++;
+    }
+    printf("|\n");
+}
+
+static void
 receive_data(int *commSocket, struct comm_thread_params *params)
 {
+    int len =  sizeof(uint32_t) * params->led_array_length;
+    uint32_t *rec_array = *(params->receiving_array);
     printf("%p", commSocket);
     while(params->running) {
-        printf("receiving data\n");
-        sleep(2);
+        int received = recv(*commSocket, rec_array, len, 0);
+                printf("received %d\n", received);
+        print_rec_buf(params);
         change_receive_buf(params);
+        usleep(RECEIVE_DELAY);
     }
 }
 

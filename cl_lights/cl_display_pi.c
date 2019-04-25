@@ -11,6 +11,7 @@
 #define PI_NAME "SIDEWAY\'S PI"
 /* XXX: move ot header */
 #define CHANNEL_A 7
+#define MAX_CHECK_COUNT 50
 
 int main() {
 
@@ -50,7 +51,7 @@ int main() {
         printf("display waiting\n");
         sleep(2);
         count++;
-        if (count > 3){
+        if (count > MAX_CHECK_COUNT){
             break;
         }
     }

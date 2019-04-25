@@ -4,7 +4,7 @@
 #define PI_NAME_LEN 20
 #define CONTROL_PI_IP "127.0.0.1"
 #define CONTROL_PI_ACC_PORT 15556
-#define LED_ARRAY_LEN 100
+#define LED_ARRAY_LEN 5
 
 struct reg_msg {
     char name[PI_NAME_LEN];
