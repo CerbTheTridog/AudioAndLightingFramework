@@ -74,7 +74,7 @@ print_rec_buf(struct comm_thread_params *params) {
     int len = params->led_array_length;
     printf ("led array: |");
     while (i < len) {
-        printf("%u,", (*params->receiving_array)[i]);
+        printf("%u,", (*(params->receiving_array))[i]);
         i++;
     }
     printf("|\n");
@@ -84,10 +84,10 @@ static void
 receive_data(int *commSocket, struct comm_thread_params *params)
 {
     int len =  sizeof(uint32_t) * params->led_array_length;
-    uint32_t *rec_array = *(params->receiving_array);
     printf("%p", commSocket);
     while(params->running) {
-        int received = recv(*commSocket, rec_array, len, 0);
+
+        int received = recv(*commSocket, *(params->receiving_array), len, 0);
                 printf("received %d\n", received);
         print_rec_buf(params);
         change_receive_buf(params);

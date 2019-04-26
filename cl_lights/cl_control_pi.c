@@ -13,9 +13,6 @@
 //#define LOCAL_LISTEN_PORT 15557
 //#define RECV_BUFF_SIZE 1024
 #define MAX_CONNECTIONS 10
-#define PI_NAME_LEN 20
-#define COLOR_GEN_DELAY 300000 /* microseconds */
-#define SEND_DELAY 400000 /* microseconds */
 
 /* XXX: move to a .h to share with display pi's */
 struct display_pi {
@@ -245,11 +242,10 @@ run_color_calc()
 {
 	printf("color calc called\n");
 	uint32_t color = 0;
-	uint32_t red = 255 << 16;
-	uint32_t green = 255 << 8;
-	uint32_t blue = 255;
+	uint32_t red = UINT32_FULL_RED;
+	uint32_t green = UINT32_FULL_GREEN;
+	uint32_t blue = UINT32_FULL_BLUE;
 	int cur_led = 0;
-	int color_num = red;
 	uint array_num;
 	while (1) {
 		/*if (recording_array == led_array_buf_1) {
@@ -267,18 +263,12 @@ run_color_calc()
 		/* At the end of the strip, change to the next color and go back to start */
 		if (cur_led >= LED_ARRAY_LEN) {
 			cur_led = 0;
-			if (color_num == red) {
-				color_num = blue;
-				color -= red;
-				color += blue;
-			} else if (color_num = blue) {
-				color_num = green;
-				color -= blue;
-				color += green;
+			if (color == red) {
+				color = green;
+			} else if (color == green) {
+				color = blue;
 			} else {
-				color_num = red;
-				color -= green;
-				color += red;
+				color = red;
 			}
 		}
 		/* Clear the entire strip except for the one LED we want on */
