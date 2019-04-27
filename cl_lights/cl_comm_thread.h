@@ -15,9 +15,9 @@
 
 struct comm_thread_params
 {
-    const char *control_pi_ip;
+    char *control_pi_ip;
     uint32_t    control_pi_port;
-    const char *pi_name;
+    char *pi_name;
     uint32_t    pi_name_length;
     uint32_t    led_array_length;
     uint32_t    strip_number;
@@ -33,4 +33,6 @@ struct comm_thread_params
 
 
 void run_net_comm(struct comm_thread_params *params);
+void end_net_comm(struct comm_thread_params *params);
+
 #endif

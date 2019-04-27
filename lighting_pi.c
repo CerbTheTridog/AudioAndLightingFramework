@@ -43,42 +43,24 @@
 #include <stdbool.h>
 #include "version.h"
 #include "cl_lights/cl_comm_thread.h"
-
-
+#include <assert.h>
 #include "ws2811.h"
 #include "log.h"
-/*
-	PWM0, which can be set to use GPIOs 12, 18, 40, and 52.
-	Only 12 (pin 32) and 18 (pin 12) are available on the B+/2B/3B
-	PWM1 which can be set to use GPIOs 13, 19, 41, 45 and 53.
-	Only 13 is available on the B+/2B/PiZero/3B, on pin 33
-	PCM_DOUT, which can be set to use GPIOs 21 and 31.
-	Only 21 is available on the B+/2B/PiZero/3B, on pin 40.
-	SPI0-MOSI is available on GPIOs 10 and 38.
-	Only GPIO 10 is available on all models.
-
-	The library checks if the specified gpio is available
-	on the specific model (from model B rev 1 till 3B)
-
-*/
 
 #define TARGET_FREQ             WS2811_TARGET_FREQ
 #define GPIO_PIN_ONE            18
 #define GPIO_PIN_TWO            13
 #define DMA                     10
 #define STRIP_TYPE              WS2811_STRIP_GRB		// WS2812/SK6812RGB integrated chip+leds
-#define PI_NAME_LEN 20
-#define DEFAULT_CONTROL_PI_PORT 0
 
-uint32_t control_pi_port = DEFAULT_CONTROL_PI_PORT;
-#define DEFAULT_CONTROL_PI_IP "6.6.6.6"
-char *control_pi_ip = NULL;
-char *pi_name = NULL;
-uint32_t led_array_length = 11;
+#define DEFAULT_LED_COUNT 5
+#define DEFAULT_PI_NAME "Pi Name Unset"
+#define DEFAULT_CONTROL_PI_PORT 15556
+#define DEFAULT_CONTROL_PI_IP "127.0.0.1"
+#define DEFAULT_STRIP_NUMBER 99
 int32_t gpio_pin = -1;
 uint32_t running = 1;
-uint32_t pattern[] = {0,1,2,3,4,5,6,7,8,9,10};
-
+struct comm_thread_params comm_thread_params;
 
 static void ctrl_c_handler(int signum)
 {
@@ -86,7 +68,6 @@ static void ctrl_c_handler(int signum)
 	running = 0;
     (void)(signum);
 }
-
 
 static void setup_handlers(void)
 {
@@ -100,59 +81,6 @@ static void setup_handlers(void)
     sigaction(SIGHUP, &action, NULL);
 }
 
-#define MAX_IP_LENGTH 16
-#define PI_NAME_LENGTH 20
-#if 0
-struct comm_thread_params {
-	const char 	 *control_pi_ip;
-	uint32_t  control_pi_port;
-	const char 	 *pi_name;
-    uint32_t  pi_name_length;
-	uint32_t  led_array_length;
-	uint32_t *led_array_buf1;
-	uint32_t *led_array_buf2;
-	uint32_t *led_array_buf3;
-	uint32_t  strip_number;
-	uint32_t **receiving_array;
-	uint32_t **displaying_array;
-};
-#endif
-void print_comm_thread_params(struct comm_thread_params *params)
-{
-    printf("Control Pi IP:     %s\n", params->control_pi_ip);
-    printf("Control Pi Port:   %d\n", params->control_pi_port);
-    printf("Pi Name:           %s\n", params->pi_name);
-    printf("Pi Name Length:    %d\n", params->pi_name_length);
-    printf("LED Array Length:  %d\n", params->led_array_length);
-    printf("LED Array Buffer1: %p\n", params->led_array_buf_1);
-    printf("LED Array Buffer2: %p\n", params->led_array_buf_2);
-    printf("LED Array Buffer3: %p\n", params->led_array_buf_3);
-    printf("Strip Number:      %d\n", params->strip_number);
-    printf("Receive Array:     %p\n", *params->receiving_array);
-    printf("Display Array:     %p\n", *params->displaying_array);
-}
-#if 0
-struct comm_thread_params*
-create_comm_thread_params(const char *control_pi_ip, const uint32_t control_port,
-        const char* pi_name, uint32_t strip_number, uint32_t led_array_length)
-{
-
-	struct comm_thread_params *params = (struct comm_thread_params*) malloc(sizeof(struct comm_thread_params));
-    params->control_pi_ip    = control_pi_ip;
-    params->control_pi_port  = control_port;
-    params->pi_name          = pi_name;
-    params->pi_name_length   = strlen(pi_name);
-    params->led_array_length = led_array_length;
-    params->led_array_buf_1  = (uint32_t *) calloc(params->led_array_length, sizeof(uint32_t));
-    params->led_array_buf_2  = (uint32_t *) calloc(params->led_array_length, sizeof(uint32_t));
-    params->led_array_buf_3  = (uint32_t *) calloc(params->led_array_length, sizeof(uint32_t));
-    params->strip_number     = strip_number;
-    params->receiving_array  = &params->led_array_buf_1;
-    params->displaying_array = &params->led_array_buf_2;
-    return params;
-}
-#endif
-
 void parseargs(int argc, char **argv)
 {
 	int index;
@@ -160,12 +88,14 @@ void parseargs(int argc, char **argv)
 
 	static struct option longopts[] =
 	{
-        {"help", optional_argument, 0, 'h'},
         {"port", required_argument, 0, 'P'},
         {"ip", required_argument, 0, 'I'},
         {"length", required_argument, 0, 'L'},
         {"name", required_argument, 0, 'N'},
         {"gpio", required_argument, 0, 'G'},
+        {"strip", required_argument, 0, 'S'},
+        {"debug", optional_argument, 0, 'd'},
+        {"help", optional_argument, 0, 'h'},
         {0, 0, 0, 0}
 	};
 
@@ -173,7 +103,7 @@ void parseargs(int argc, char **argv)
 	{
 
 		index = 0;
-		c = getopt_long(argc, argv, "hH:P:I:L:N:G:", longopts, &index);
+		c = getopt_long(argc, argv, "hH:P:I:L:N:G:d:S:", longopts, &index);
 
 		if (c == -1)
 			break;
@@ -185,30 +115,39 @@ void parseargs(int argc, char **argv)
 			break;
         case 'P':
             if (optarg) {
-                control_pi_port = atoi(optarg);
+                comm_thread_params.control_pi_port = atoi(optarg);
             }
             break;
         case 'I':
             if (optarg) {
-                control_pi_ip = (char*) malloc(strlen(optarg));
-                strcpy(control_pi_ip, optarg);
+                comm_thread_params.control_pi_ip = (char*) malloc(strlen(optarg) + 1);
+                strcpy(comm_thread_params.control_pi_ip, optarg);
             }
             break;
         case 'N':
             if (optarg) {
-                pi_name = (char*) malloc(strlen(optarg));
-                strcpy(pi_name, optarg);
+                comm_thread_params.pi_name_length = strlen(optarg) + 1;
+                comm_thread_params.pi_name = (char*) malloc(comm_thread_params.pi_name_length);
+                strcpy(comm_thread_params.pi_name, optarg);
             }
             break;
         case 'L':
             if (optarg) {
-                led_array_length = atoi(optarg);
+                comm_thread_params.led_array_length = atoi(optarg);
             }
             break;
         case 'G':
             if (optarg) {
                 gpio_pin = atoi(optarg);
             }
+            break;
+        case 'S':
+            if (optarg) {
+                comm_thread_params.strip_number = atoi(optarg);
+            }
+            break;
+        case 'd':
+            log_set_level(LOG_TRACE);
             break;
         case 'H':
         case 'h':
@@ -221,9 +160,10 @@ void parseargs(int argc, char **argv)
             fprintf(stderr, "h / --help: This help menu\n");
             exit(0);
         }
+
     }
     if (gpio_pin != 1 && gpio_pin != 2) {
-        fprintf(stderr, "Bad pin\n");
+        log_fatal("Bad pin\n");
         exit (-1);
     }
 }
@@ -234,7 +174,7 @@ create_ledstring(uint32_t gpio_pin, uint32_t led_count)
     ws2811_t *ledstring; 
     ledstring = (ws2811_t*)calloc(1, sizeof(ws2811_t));
     if (ledstring == NULL) {
-        printf("FARTS");
+        log_fatal("Out of Memory: Cannot allocate space for ledstring");
         return NULL;
     }
 
@@ -256,113 +196,134 @@ create_ledstring(uint32_t gpio_pin, uint32_t led_count)
     }
 
     if (ws2811_init(ledstring) != WS2811_SUCCESS) {
-        printf("Unable to init");
+        log_fatal("Unable to initialize LED string");
         free(ledstring);
         ledstring = NULL;
     }
     else {
-        printf("Lighting string created\n");
+        log_debug("LED String initialized");
     }
     return ledstring;
 }
-void
-stamp_ledstring(uint32_t *pattern, ws2811_t *ledstring)
-{
 
-    uint32_t channel;
-    if (ledstring->channel[0].gpionum == GPIO_PIN_ONE) {
-        channel = 0;
-    }
-    else {
-        channel = 1;
-    }
-    uint32_t x;
-    uint32_t led_count = ledstring->channel[channel].count;
-    for (x = 0; x < led_count; x++)
-    {
-        ledstring->channel[channel].leds[x] = pattern[x];
-    }
-    if (ws2811_render(ledstring) != WS2811_SUCCESS) {
-        fprintf(stderr, "ERROR ERROR ERROR\n");
-    }
-    else {
-        printf("Lights rendered\n");
-    }
-}
 void
 print_ledstring(ws2811_t *ledstring)
 {
+#ifdef DEBUG_LOGGING
     uint32_t x;
-    printf("LED String: [");
+    printf("XXX LED String: [");
     uint32_t channel = ledstring->channel[0].gpionum == GPIO_PIN_ONE ? 0 : 1;
-    for (x = 0; x < (uint32_t)ledstring->channel[channel].count; x++) {
-        printf("%d ", ledstring->channel[channel].leds[x]);
+    uint32_t size = ledstring->channel[channel].count;
+    for (x = 0; x < size; x++) {
+        printf("%u, ", ledstring->channel[channel].leds[x]);
     }
     printf("]\n");
+#else
+    assert(ledstring != NULL);
+#endif
 }
 
-ws2811_t *ledstring;
-
-void *to_be_threaded(void *vargp)
-{
-    struct comm_thread_params *ctp = (struct comm_thread_params *)vargp;
-    print_comm_thread_params(ctp);
-    sleep(3);
-
-    while (running == 1) {
-        printf("Working...%s\n", ctp->pi_name);
-        stamp_ledstring(pattern, ledstring);
-        if (ws2811_render(ledstring) != WS2811_SUCCESS) {
-            log_error("ws2811_render failed: ");
-            running = 0;
-            break;
-        }
-        print_ledstring(ledstring);
-        sleep(5);
+static void
+print_disp_buf(struct comm_thread_params *params) {
+#ifdef DEBUG_LOGGING
+    int i = 0;
+    int len = params->led_array_length;
+    printf("XXX: Display Buffer: [");
+    while (i < len) {
+        printf("%u, ", (*(params->displaying_array))[i]);
+        i++;
     }
-    return NULL;
+    printf("]\n");
+#else
+    assert(params != NULL);
+#endif
 }
+
+static void
+stamp_to_led(struct comm_thread_params *params, ws2811_t *ledstring)
+{
+    int i = 0;
+    int len = params->led_array_length;
+    uint32_t channel = ledstring->channel[0].gpionum == GPIO_PIN_ONE ? 0 : 1;
+
+    while (i < len) {
+        ledstring->channel[channel].leds[i] = (*(params->displaying_array))[i];
+        i++;
+    }
+}
+
+static void
+change_displaying_array(struct comm_thread_params *params)
+{
+    if (*params->receiving_array == params->led_array_buf_1) {
+        if (*params->displaying_array == params->led_array_buf_2) {
+            log_trace("Changing display buffer from 1 to 3");
+            params->displaying_array = &params->led_array_buf_3;
+        }
+        else {
+            log_trace("Changing display buffer from 1 to 2");
+            params->displaying_array = &params->led_array_buf_2;
+        }
+    }
+    else if (*params->receiving_array == params->led_array_buf_2) {
+        if (*params->displaying_array == params->led_array_buf_1) {
+            log_trace("Changing display buffer from 2 to 3");
+            params->displaying_array = &params->led_array_buf_3;
+        }
+        else {
+            log_trace("Changing display buffer from 2 to 1");
+            params->displaying_array = &params->led_array_buf_1;
+        }
+    }
+    else if (*params->receiving_array == params->led_array_buf_3) {
+        if (*params->displaying_array == params->led_array_buf_1) {
+            log_trace("Changing display buffer from 3 to 2");
+            params->displaying_array = &params->led_array_buf_2;
+        }
+        else {
+            log_trace("Changing display buffer from 3 to 1");
+            params->displaying_array = &params->led_array_buf_1;
+        }
+    }
+    else {
+        log_error("Unable to change display buffer");
+        running = 0;
+    }
+
+}
+
 int main(int argc, char *argv[])
 {
+    log_set_level(LOG_TRACE);
+    
+    pthread_mutex_t recv_disp_ptr_lock = PTHREAD_MUTEX_INITIALIZER;
 
+    comm_thread_params.control_pi_ip       = (char*) calloc(strlen(DEFAULT_CONTROL_PI_IP) + 1, sizeof(char));
+    strcpy(comm_thread_params.control_pi_ip, DEFAULT_CONTROL_PI_IP);
+    comm_thread_params.control_pi_port     = DEFAULT_CONTROL_PI_PORT;
+    comm_thread_params.pi_name_length      = strlen(DEFAULT_PI_NAME) + 1;
+    comm_thread_params.pi_name             = (char*) calloc(comm_thread_params.pi_name_length, sizeof(char));
+    strcpy(comm_thread_params.pi_name, DEFAULT_PI_NAME);
+    comm_thread_params.led_array_length    = DEFAULT_LED_COUNT;
+    comm_thread_params.strip_number        = (uint32_t) DEFAULT_STRIP_NUMBER;
     parseargs(argc, argv);
+
+    comm_thread_params.led_array_buf_1     = (uint32_t*) calloc(comm_thread_params.led_array_length, sizeof(uint32_t));
+    comm_thread_params.led_array_buf_2     = (uint32_t*) calloc(comm_thread_params.led_array_length, sizeof(uint32_t));
+    comm_thread_params.led_array_buf_3     = (uint32_t*) calloc(comm_thread_params.led_array_length, sizeof(uint32_t));
+
+    // XXX: How do I make this a one liner for each variable?
+    uint32_t *receiving_array = comm_thread_params.led_array_buf_1;
+    uint32_t *displaying_array = comm_thread_params.led_array_buf_2;
+    comm_thread_params.receiving_array = &receiving_array;
+    comm_thread_params.displaying_array = &displaying_array;
+    comm_thread_params.recv_disp_ptr_lock  = &recv_disp_ptr_lock;
+    comm_thread_params.new_data            = false;
+
     /* Handlers should only be caught in this file. And commands propogate down */
     setup_handlers();
 
-    /* TODO: Configure one LED strip on one GPIO Pin */
-
-    if (control_pi_ip == NULL) {
-        control_pi_ip = (char*) malloc(strlen("6.6.6.6"));
-        strcpy(control_pi_ip, "6.6.6.6");
-    }
-
-    if (pi_name == NULL) {
-        pi_name = (char*) malloc(strlen("PI NAME UNSET"));
-        strcpy(pi_name, "PI NAME UNSET");
-    }
-    printf("piController running \n");
-    
-    uint32_t led_array_buf_1[LED_ARRAY_LEN];
-    uint32_t led_array_buf_2[LED_ARRAY_LEN];
-    uint32_t led_array_buf_3[LED_ARRAY_LEN];
-    uint32_t *receiving_array = led_array_buf_1;
-    uint32_t *displaying_array = led_array_buf_2;
-    pthread_mutex_t recv_disp_ptr_lock = PTHREAD_MUTEX_INITIALIZER;
- 
-    struct comm_thread_params comm_thread_params;
-    comm_thread_params.control_pi_ip       = control_pi_ip;
-    comm_thread_params.control_pi_port     = control_pi_port;
-    comm_thread_params.pi_name             = pi_name;
-    comm_thread_params.pi_name_length      = PI_NAME_LEN;
-    comm_thread_params.led_array_length    = LED_ARRAY_LEN;
-    comm_thread_params.strip_number        = (uint32_t)gpio_pin;
-    comm_thread_params.led_array_buf_1     = led_array_buf_1;
-    comm_thread_params.led_array_buf_2     = led_array_buf_2;
-    comm_thread_params.led_array_buf_3     = led_array_buf_3;
-    comm_thread_params.receiving_array     = &receiving_array;
-    comm_thread_params.displaying_array    = &displaying_array;
-    comm_thread_params.recv_disp_ptr_lock  = &recv_disp_ptr_lock;
-    comm_thread_params.new_data            = false;
+    log_info("Activating network communicator");
     run_net_comm(&comm_thread_params);
 
     /* receiving_array - The array being written to
@@ -371,30 +332,51 @@ int main(int argc, char *argv[])
      *            data, it is the buffer that is not pointed to from receiving_array
      *            or displaying array.
      *  Example: I just finished displaying two, and set new_data to false. Something new has
-     *  been inserted into one and receiving_data is now pointed at three, and new_data is set back to true. I see that new data is true,
-     *  that receiving_array points at three and displaying_array still points at two. Thus, I change displaying_array to one, set new_data to false,
+     *  been inserted into one and receiving_data is now pointed at three, and new_data is set
+     *  back to true. I see that new data is true,
+     *  that receiving_array points at three and displaying_array still points at two.
+     *  Thus, I change displaying_array to one, set new_data to false,
      *  and start displaying what is in displaying_array / what is in led_array_buf_1
      */
 
-    ledstring = create_ledstring(gpio_pin, led_array_length);   
-    while (running == 1) {
-        sleep(1);
-
+    ws2811_t *ledstring = create_ledstring(gpio_pin, comm_thread_params.led_array_length);
+    if (ledstring == NULL) {
+        exit(-1);
     }
-    comm_thread_params.running = false;
 
-    //pthread_join(comm_thread, NULL);
-    /* TODO: Each of these should be in it's own thread */
-    //struct comm_thread_params *ctp1 = create_comm_thread_params(control_pi_ip, 
-    ///       control_pi_port, pi_name, 0, led_array_length);
-    //print_comm_thread_params(ctp1);
-    //pthread_t thread_id;
-    //pthread_create(&thread_id, NULL, to_be_threaded, (void*)ctp1);
-    //while (running == 1) {
-    //    sleep(1);
-    //}
-    //pthread_join(thread_id, NULL);
+    log_info("Pi Controller is now running");
+    
+    while(running == 1) {
+        log_trace("XXX: display waiting\n");
+        if (comm_thread_params.new_data) {
+            comm_thread_params.new_data = false;
+            pthread_mutex_lock(comm_thread_params.recv_disp_ptr_lock);
+            print_disp_buf(&comm_thread_params);
+    
+            stamp_to_led(&comm_thread_params, ledstring);
+            change_displaying_array(&comm_thread_params);
+            pthread_mutex_unlock(comm_thread_params.recv_disp_ptr_lock);
 
+            //if (ws2811_render(ledstring) != WS2811_SUCCESS) {
+            //    log_error("ws2811_render failed: ");
+            //    exit(-1);
+            //}
+            print_ledstring(ledstring);
+
+
+        }
+        sleep(2);
+    }
+    log_info("Pi Controller is now stopping");
+    end_net_comm(&comm_thread_params);
+
+    free(comm_thread_params.pi_name);
+    free(comm_thread_params.control_pi_ip);
+    //free(comm_thread_params.led_array_buf_1);
+    //free(comm_thread_params.led_array_buf_2);
+    //free(comm_thread_params.led_array_buf_3);
     ws2811_fini(ledstring);
+    free(ledstring);
+    log_info("Pi Controller is now stopped");
     return 0;
 }
