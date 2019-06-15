@@ -9,6 +9,8 @@
 *lights/test
 *cl_lights/display
 *cl_lights/control
+*control
+*display
 test
 # Ignore the scons database
 *.sconsign.dblite

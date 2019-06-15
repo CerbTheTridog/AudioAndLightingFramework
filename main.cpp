@@ -319,6 +319,7 @@ int main(int argc, char *argv[])
         sleep_rate = 600000;
     }
 
+    pattern->local = true;
     pattern->max_brightness = 100;
     pattern->pulseWidth = pulse_width;
     pattern->clear_on_exit = clear_on_exit;

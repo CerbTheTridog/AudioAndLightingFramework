@@ -85,6 +85,10 @@ struct pattern
     /* XXX: This should only apply to pattern_pulse */
     ws2811_return_t (*func_inject)(ws2811_led_t color, uint32_t intensity);
 
+    /* If true, render directly to strip. If false, sends to network
+     * TODO: If false, then there's some information that isn't needed. Pull it out */
+    bool local;
+
     char name[256];
 };
 
@@ -246,6 +250,20 @@ matrix_to_ledstring(ws2811_led_t *ledstring, ws2811_led_t *matrix, uint32_t leng
             memmove(&ledstring[i], &matrix[i], sizeof(ws2811_led_t));
         }
     }
+}
+
+static inline ws2811_return_t 
+render(struct pattern *pattern)
+{
+
+    if (pattern->local) {
+        return ws2811_render(pattern->ledstring);
+    }
+    else {
+        return ws2811_render(pattern->ledstring);
+        //return network_render(ws2811);
+    }
+
 }
 
 #ifdef __cplusplus

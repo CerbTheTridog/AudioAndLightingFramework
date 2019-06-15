@@ -133,11 +133,13 @@ run_conn_th(void* pi_ptr)
 	int sent = 0;
 
 	while(1) {
-		sent = 0;
-
 		if(pi->new_data) {
 			change_send_buf(pi);
+		} else {
+			goto skip_send;
 		}
+		printf("IN conn_th while loop after guard\n");
+		sent = 0;
 		if (pi->sending_array == pi->led_array_buf_1) {
 			send_arr_num = 1;
 		} else if (pi->sending_array == pi->led_array_buf_2) {
@@ -157,6 +159,7 @@ run_conn_th(void* pi_ptr)
 		pi->new_data = false;
 		pthread_mutex_unlock(&pi->rec_send_ptr_lock);
 
+skip_send:
 		usleep(SEND_DELAY);
 	}
 	//pi_list[pi_count].
@@ -236,11 +239,11 @@ void* accept_connections(int *com_sockets)
 	}
 	/* XXX: Should instead periodically check number of open connections and start loop again if needed */
 	printf("[ConnectionAccepter]: Reached MAX_ENTITIES, exiting accepter\n");
-	return NULL;
+	return;
 
 err_out:
 	printf("Connection accepter erroring out\n");
-	return NULL;
+	return;
 }
 
 
@@ -265,6 +268,7 @@ run_color_calc(struct display_pi *pi)
 	uint32_t *recording_array;
 	int cur_index = 0;
 	while (1) {
+		printf("in color calc while loop\n");
 		for (cur_index = 0; cur_index < pi_count; cur_index++) {
 			recording_array = pi->recording_array;
 
@@ -285,8 +289,8 @@ run_color_calc(struct display_pi *pi)
 			cur_led ++;
 			print_rec_buf(pi);
 			change_record_buf(pi);
-			usleep(COLOR_GEN_DELAY);
 		}
+		usleep(COLOR_GEN_DELAY);
 	}
 
 

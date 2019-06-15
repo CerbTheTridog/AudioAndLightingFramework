@@ -60,6 +60,7 @@
 #define DEFAULT_STRIP_NUMBER 99
 int32_t gpio_pin = -1;
 uint32_t running = 1;
+uint32_t runway_number = -1;
 struct comm_thread_params comm_thread_params;
 #define DEBUG_LOGGING
 static void ctrl_c_handler(int signum)
@@ -103,7 +104,7 @@ void parseargs(int argc, char **argv)
 	{
 
 		index = 0;
-		c = getopt_long(argc, argv, "hH:P:I:L:N:G:d:S:", longopts, &index);
+		c = getopt_long(argc, argv, "hH:P:I:L:N:G:d:S:R:", longopts, &index);
 
 		if (c == -1)
 			break;
@@ -148,6 +149,12 @@ void parseargs(int argc, char **argv)
             break;
         case 'd':
             log_set_level(LOG_TRACE);
+            break;
+        case 'r':
+        case 'R':
+            if (optarg) {
+                runway_number = atoi(optarg);
+            }
             break;
         case 'H':
         case 'h':
@@ -246,6 +253,7 @@ stamp_to_led(struct comm_thread_params *params, ws2811_t *ledstring)
     int len = params->led_array_length;
     uint32_t channel = ledstring->channel[0].gpionum == GPIO_PIN_ONE ? 0 : 1;
 
+#if 0
     while (i < len) {
         switch ( (*(params->displaying_array))[i]) {
             case 0:
@@ -266,10 +274,12 @@ stamp_to_led(struct comm_thread_params *params, ws2811_t *ledstring)
         }
         i++;
     }
-//    while (i < len) {
-//        ledstring->channel[channel].leds[i] = (*(params->displaying_array))[i];
-//        i++;
-//    }
+#else
+    while (i < len) {
+        ledstring->channel[channel].leds[i] = (*(params->displaying_array))[i];
+        i++;
+    }
+    #endif
 }
 
 static void
