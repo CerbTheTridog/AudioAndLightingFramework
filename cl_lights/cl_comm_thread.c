@@ -114,6 +114,57 @@ print_rec_buf(struct comm_thread_params *params) {
 }
 
 static void
+print_all_bufs(struct comm_thread_params *params) {
+
+    int i = 0;
+    int len = params->led_array_length;
+    printf ("led array1: |");
+    while (i < len) {
+        printf("%u,", (params->led_array_buf_1)[i]);
+        i++;
+    }
+    printf("|");
+    if(*params->receiving_array == params->led_array_buf_1) {
+        printf("<--- is receiving array");
+    }
+    if(*params->displaying_array == params->led_array_buf_1) {
+        printf("<--- is displaying_array array");
+    }
+    printf("\n");
+
+    i = 0;
+    printf ("led array2: |");
+    while (i < len) {
+        printf("%u,", (params->led_array_buf_2)[i]);
+        i++;
+    }
+    printf("|");
+    if(*params->receiving_array == params->led_array_buf_2) {
+        printf("<--- is receiving array");
+    }
+    if(*params->displaying_array == params->led_array_buf_2) {
+        printf("<--- is displaying_array array");
+    }
+    printf("\n");
+
+    i = 0;
+    printf ("led array3: |");
+    while (i < len) {
+        printf("%u,", (params->led_array_buf_3)[i]);
+        i++;
+    }
+    printf("|");
+    if(*params->receiving_array == params->led_array_buf_3) {
+        printf("<--- is receiving array");
+    }
+    if(*params->displaying_array == params->led_array_buf_3) {
+        printf("<--- is displaying_array array");
+    }
+    printf("\n");
+
+}
+
+static void
 receive_data(int *commSocket, struct comm_thread_params *params)
 {
     int len =  sizeof(uint32_t) * params->led_array_length;
@@ -122,7 +173,8 @@ receive_data(int *commSocket, struct comm_thread_params *params)
 
         int received = recv(*commSocket, *(params->receiving_array), len, 0);
         log_debug("received %d\n", received);
-        print_rec_buf(params);
+        print_all_bufs(params);
+        //print_rec_buf(params);
         change_receive_buf(params);
 
         usleep(RECEIVE_DELAY);
