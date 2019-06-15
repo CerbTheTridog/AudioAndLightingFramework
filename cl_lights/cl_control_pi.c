@@ -85,7 +85,7 @@ static void
 print_rec_buf(struct display_pi *pi) {
     int i = 0;
     int len = LED_ARRAY_LEN;
-    printf ("led array: |");
+    printf ("pi %d led array: |", pi->index);
     while (i < len) {
         printf("%u,", (pi->recording_array)[i]);
         i++;
@@ -151,7 +151,7 @@ run_conn_th(void* pi_ptr)
 
 
 		sent = send((pi->socket), (void*)pi->sending_array, (sizeof(uint32_t) * LED_ARRAY_LEN), 0);
-    	printf("sent array%d, sent %dbytes:\n", send_arr_num, sent);
+    	printf("sent pi%d array%d, sent %dbytes:\n", pi->index, send_arr_num, sent);
     	print_send_buf(pi);
 		/* XXX: write send buf *********************************************************************************************/
 
@@ -256,8 +256,9 @@ err_out:
  * 2: a global count of how many interations of populate have beend one
  */
 void
-run_color_calc(struct display_pi *pi)
+run_color_calc(struct display_pi *pi_list)
 {
+	struct display_pi *pi;
 	printf("color calc called\n");
 	uint32_t color = 0;
 	uint32_t red = UINT32_FULL_RED;
@@ -268,8 +269,9 @@ run_color_calc(struct display_pi *pi)
 	uint32_t *recording_array;
 	int cur_index = 0;
 	while (1) {
-		printf("in color calc while loop\n");
+		printf("in color calc while loop, picount is %d\n", pi_count);
 		for (cur_index = 0; cur_index < pi_count; cur_index++) {
+			pi = &pi_list[cur_index];
 			recording_array = pi->recording_array;
 
 			/* At the end of the strip, change to the next color and go back to start */
