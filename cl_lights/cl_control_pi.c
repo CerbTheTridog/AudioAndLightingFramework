@@ -16,21 +16,20 @@
 
 /* XXX: move to a .h to share with display pi's */
 struct display_pi {
+    uint led_array_buf_1[LED_ARRAY_LEN];
+    uint led_array_buf_2[LED_ARRAY_LEN];
+    uint led_array_buf_3[LED_ARRAY_LEN];
 	struct reg_msg reg_msg;
 	int socket;
 	pthread_t thread;
 	uint index;
+	/* Pointers and lock for led buffers */
+	pthread_mutex_t rec_send_ptr_lock;
+	bool new_data; /* investigate semiphores instead of looping and checking this bool */
+	uint *recording_array;
+	uint *sending_array;
 };
 
-uint led_array_buf_1[LED_ARRAY_LEN];
-uint led_array_buf_2[LED_ARRAY_LEN];
-uint led_array_buf_3[LED_ARRAY_LEN];
-
-/* Pointers and lock for led buffers */
-pthread_mutex_t rec_send_ptr_lock = PTHREAD_MUTEX_INITIALIZER;
-bool new_data; /* investigate semiphores instead of looping and checking this bool */
-uint *recording_array;
-uint *sending_array;
 
 /* Data structure and lock for tracking connections */
 pthread_mutex_t pi_list_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -40,6 +39,20 @@ uint pi_count = 0;
 /* XXX: remove */
 uint recording_count;
 
+void
+pi_init(struct display_pi *pi)
+{
+	pi->recording_array = pi->led_array_buf_1;
+	pi->sending_array = pi->led_array_buf_2;
+
+	pi->rec_send_ptr_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+
+	/* Write 0's to all arrays */
+	memset(pi->led_array_buf_1, '0', (LED_ARRAY_LEN * sizeof(uint32_t)));
+	memset(pi->led_array_buf_2, '0', (LED_ARRAY_LEN * sizeof(uint32_t)));
+	memset(pi->led_array_buf_3, '0', (LED_ARRAY_LEN * sizeof(uint32_t)));
+}
+
 
 /* XXX: move these to .h as "change_buf_ptr" and take two int**'s as parameters */
 
@@ -48,65 +61,65 @@ uint recording_count;
  * data to true
  */
 void
-change_record_buf()
+change_record_buf(struct display_pi *pi)
 {
-    pthread_mutex_lock(&rec_send_ptr_lock);
-	new_data = true;
-	if (recording_array == led_array_buf_1) {
+    pthread_mutex_lock(&pi->rec_send_ptr_lock);
+	pi->new_data = true;
+	if (pi->recording_array == pi->led_array_buf_1) {
 		printf("was recording in 1\n");
-		recording_array = (sending_array == led_array_buf_2) ?
-				led_array_buf_3 : led_array_buf_2;		
-	} else if (recording_array == led_array_buf_2) {
+		pi->recording_array = (pi->sending_array == pi->led_array_buf_2) ?
+				pi->led_array_buf_3 : pi->led_array_buf_2;		
+	} else if (pi->recording_array == pi->led_array_buf_2) {
 		printf("was recording in 2\n");
-		recording_array = (sending_array == led_array_buf_3) ?
-				led_array_buf_1 : led_array_buf_3;		
+		pi->recording_array = (pi->sending_array == pi->led_array_buf_3) ?
+				pi->led_array_buf_1 : pi->led_array_buf_3;		
 	} else {
 		printf("was recording in 3\n");
-		recording_array = (sending_array == led_array_buf_1) ?
-				led_array_buf_2 : led_array_buf_1;		
+		pi->recording_array = (pi->sending_array == pi->led_array_buf_1) ?
+				pi->led_array_buf_2 : pi->led_array_buf_1;		
 	}
-	pthread_mutex_unlock(&rec_send_ptr_lock);
+	pthread_mutex_unlock(&pi->rec_send_ptr_lock);
 }
 
 static void
-print_rec_buf() {
+print_rec_buf(struct display_pi *pi) {
     int i = 0;
     int len = LED_ARRAY_LEN;
     printf ("led array: |");
     while (i < len) {
-        printf("%u,", (recording_array)[i]);
+        printf("%u,", (pi->recording_array)[i]);
         i++;
     }
     printf("|\n");
 }
 
 static void
-print_send_buf() {
+print_send_buf(struct display_pi *pi) {
     int i = 0;
     int len = LED_ARRAY_LEN;
     printf ("led array: |");
     while (i < len) {
-        printf("%u,", (sending_array)[i]);
+        printf("%u,", (pi->sending_array)[i]);
         i++;
     }
     printf("|\n");
 }
 
 void
-change_send_buf()
+change_send_buf(struct display_pi *pi)
 {
-    pthread_mutex_lock(&rec_send_ptr_lock);
-    if (sending_array == led_array_buf_1) {
-        sending_array = (recording_array == led_array_buf_2) ?
-        		led_array_buf_3 : led_array_buf_2;
-    } else if (sending_array == led_array_buf_2) {
-        sending_array = (recording_array == led_array_buf_3) ?
-        		led_array_buf_1 : led_array_buf_3;
+    pthread_mutex_lock(&pi->rec_send_ptr_lock);
+    if (pi->sending_array == pi->led_array_buf_1) {
+        pi->sending_array = (pi->recording_array == pi->led_array_buf_2) ?
+        		pi->led_array_buf_3 : pi->led_array_buf_2;
+    } else if (pi->sending_array == pi->led_array_buf_2) {
+        pi->sending_array = (pi->recording_array == pi->led_array_buf_3) ?
+        		pi->led_array_buf_1 : pi->led_array_buf_3;
     } else {
-        sending_array = (recording_array == led_array_buf_1) ?
-        		led_array_buf_2 : led_array_buf_1;
+        pi->sending_array = (pi->recording_array == pi->led_array_buf_1) ?
+        		pi->led_array_buf_2 : pi->led_array_buf_1;
     }
-    pthread_mutex_unlock(&rec_send_ptr_lock);
+    pthread_mutex_unlock(&pi->rec_send_ptr_lock);
 }
 
 
@@ -118,15 +131,16 @@ run_conn_th(void* pi_ptr)
 			pi->reg_msg.name, pi->index, pi->thread);
 	int send_arr_num = 0;
 	int sent = 0;
+
 	while(1) {
 		sent = 0;
 
-		if(new_data) {
-			change_send_buf();
+		if(pi->new_data) {
+			change_send_buf(pi);
 		}
-		if (sending_array == led_array_buf_1) {
+		if (pi->sending_array == pi->led_array_buf_1) {
 			send_arr_num = 1;
-		} else if (sending_array == led_array_buf_2) {
+		} else if (pi->sending_array == pi->led_array_buf_2) {
 			send_arr_num = 2;
 		} else {
 			send_arr_num = 3;
@@ -134,14 +148,14 @@ run_conn_th(void* pi_ptr)
 		//printf("run_conn_th: running\n");
 
 
-		sent = send((pi->socket), (void*)sending_array, (sizeof(uint32_t) * LED_ARRAY_LEN), 0);
+		sent = send((pi->socket), (void*)pi->sending_array, (sizeof(uint32_t) * LED_ARRAY_LEN), 0);
     	printf("sent array%d, sent %dbytes:\n", send_arr_num, sent);
-    	print_send_buf();
+    	print_send_buf(pi);
 		/* XXX: write send buf *********************************************************************************************/
 
-		pthread_mutex_lock(&rec_send_ptr_lock);
-		new_data = false;
-		pthread_mutex_unlock(&rec_send_ptr_lock);
+		pthread_mutex_lock(&pi->rec_send_ptr_lock);
+		pi->new_data = false;
+		pthread_mutex_unlock(&pi->rec_send_ptr_lock);
 
 		usleep(SEND_DELAY);
 	}
@@ -204,6 +218,7 @@ void* accept_connections(int *com_sockets)
 		printf("[ConnectionAccepter]: reg details; %s, %d\n", new_pi->reg_msg.name, new_pi->reg_msg.strip_number);
 		new_pi->socket = conn_socket;
 		new_pi->index = pi_count;
+		pi_init(new_pi);
 
 		/* Start up new thread to transmit to this pi */
 		if (pthread_create(&new_pi->thread, NULL, run_conn_th, new_pi) ) {
@@ -238,7 +253,7 @@ err_out:
  * 2: a global count of how many interations of populate have beend one
  */
 void
-run_color_calc()
+run_color_calc(struct display_pi *pi)
 {
 	printf("color calc called\n");
 	uint32_t color = 0;
@@ -247,37 +262,31 @@ run_color_calc()
 	uint32_t blue = UINT32_FULL_BLUE;
 	int cur_led = 0;
 	uint array_num;
+	uint32_t *recording_array;
+	int cur_index = 0;
 	while (1) {
-		/*if (recording_array == led_array_buf_1) {
-			array_num = 1;
-		} else if (recording_array == led_array_buf_2) {
-			array_num = 2;
-		} else {
-			array_num = 3;
-		}
+		for (cur_index = 0; cur_index < pi_count; cur_index++) {
+			recording_array = pi->recording_array;
 
-		recording_array[0] = array_num;
-		recording_array[1] = recording_count;
-		recording_count += 1; */
-
-		/* At the end of the strip, change to the next color and go back to start */
-		if (cur_led >= LED_ARRAY_LEN) {
-			cur_led = 0;
-			if (color == red) {
-				color = green;
-			} else if (color == green) {
-				color = blue;
-			} else {
-				color = red;
+			/* At the end of the strip, change to the next color and go back to start */
+			if (cur_led >= LED_ARRAY_LEN) {
+				cur_led = 0;
+				if (color == red) {
+					color = green;
+				} else if (color == green) {
+					color = blue;
+				} else {
+					color = red;
+				}
 			}
+			/* Clear the entire strip except for the one LED we want on */
+			memset((void *)recording_array, 0, (sizeof(uint32_t) * LED_ARRAY_LEN));
+			recording_array[(cur_led)] = color;
+			cur_led ++;
+			print_rec_buf(pi);
+			change_record_buf(pi);
+			usleep(COLOR_GEN_DELAY);
 		}
-		/* Clear the entire strip except for the one LED we want on */
-		memset(recording_array, 0, (sizeof(uint32_t) * LED_ARRAY_LEN));
-		recording_array[(cur_led)] = color;
-		cur_led ++;
-		print_rec_buf();
-		change_record_buf();
-		usleep(COLOR_GEN_DELAY);		
 	}
 
 
@@ -289,7 +298,7 @@ void* run_conn_accpt(){
 	uint loop_count = 0;
 	while(1) {
 		loop_count +=1;
-		if (loop_count >5) {
+		if (loop_count >3) {
 			break;
 		}
 		printf("test\n");
@@ -302,13 +311,8 @@ void* run_conn_accpt(){
 
 void
 init() {
-	recording_array = led_array_buf_1;
-	sending_array = led_array_buf_2;
 
-	/* Write 0's to all arrays */
-	memset(led_array_buf_1, '0', (LED_ARRAY_LEN * sizeof(uint32_t)));
-	memset(led_array_buf_2, '0', (LED_ARRAY_LEN * sizeof(uint32_t)));
-	memset(led_array_buf_3, '0', (LED_ARRAY_LEN * sizeof(uint32_t)));
+
 }
 
 //main thread starts up accept, comm, and calc threads
@@ -321,7 +325,7 @@ main()
 	pthread_t conn_accpt_th;
 	pthread_create(&conn_accpt_th, NULL, run_conn_accpt, NULL);
 	/* XXX: create calc thread instead of running it in this thread */
-	run_color_calc();
+	run_color_calc(pi_list);
 
 	/* Does not yet do anyting with other thead */
 	printf("main thread done, joining");
