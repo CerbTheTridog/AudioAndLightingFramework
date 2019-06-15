@@ -75,15 +75,14 @@ for src in srcs:
 test2 = tools_env.Program('test2', objs + tools_env['LIBS'], LIBS=tools_env['LIBS'], CCFLAGS=tools_env['CCFLAGS'])
 tools_env.Default([test2])
 
-#srcs = Split('''
-#    cl_lights/cl_display_pi.c
-#''')
-#objs = []
-#for src in srcs:
-#    objs.append(tools_env.Object(src))
-
-#display = tools_env.Program('display', objs + tools_env['LIBS'], LIBS=tools_env['LIBS'], CCFLAGS=tools_env['CCFLAGS'])
-#tools_env.Default([display])
+srcs = Split('''
+    cl_lights/cl_display_pi.c
+''')
+objs = []
+for src in srcs:
+    objs.append(tools_env.Object(src))
+display = tools_env.Program('display', objs + tools_env['LIBS'], LIBS=tools_env['LIBS'], CCFLAGS=tools_env['CCFLAGS'])
+tools_env.Default([display])
 
 #srcs = Split('''
 #    cl_lights/cl_control_pi.c

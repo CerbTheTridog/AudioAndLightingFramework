@@ -41,8 +41,8 @@ int main() {
     params.receiving_array = &receiving_array;
     params.displaying_array = &displaying_array;
     params.recv_disp_ptr_lock = &recv_disp_ptr_lock;
-    params.new_data = &new_data;
-    params.running = &running;
+    params.new_data = new_data;
+    params.running = running;
     
     run_net_comm(&params);
 
@@ -56,6 +56,7 @@ int main() {
         }
     }
     running = false;
+    params.running = false;
     sleep(2);
     printf("end display pi\n");
     return 0;

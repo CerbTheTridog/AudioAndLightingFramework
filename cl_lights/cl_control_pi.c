@@ -239,11 +239,11 @@ void* accept_connections(int *com_sockets)
 	}
 	/* XXX: Should instead periodically check number of open connections and start loop again if needed */
 	printf("[ConnectionAccepter]: Reached MAX_ENTITIES, exiting accepter\n");
-	return;
+	return NULL;
 
 err_out:
 	printf("Connection accepter erroring out\n");
-	return;
+	return NULL;
 }
 
 
@@ -264,7 +264,7 @@ run_color_calc(struct display_pi *pi)
 	uint32_t green = UINT32_FULL_GREEN;
 	uint32_t blue = UINT32_FULL_BLUE;
 	int cur_led = 0;
-	uint array_num;
+    //uint array_num;
 	uint32_t *recording_array;
 	int cur_index = 0;
 	while (1) {
