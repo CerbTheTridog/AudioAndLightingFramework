@@ -162,9 +162,9 @@ matrix_run(void *vargp)
         if (!pattern->paused) {
             matrix_bottom(pattern);
             matrix_render(pattern);
-            if ((ret = ws2811_render(pattern->ledstring)) != WS2811_SUCCESS)
+            if ((ret = render(pattern)) != WS2811_SUCCESS)
             {
-                log_error("ws2811_render failed: %s", ws2811_get_return_t_str(ret));
+                log_error("render failed: %s", ws2811_get_return_t_str(ret));
                 // XXX: This should cause some sort of fatal error to propogate upwards
                 break;
             }
@@ -234,7 +234,7 @@ rainbow_kill(struct pattern *pattern)
         log_info("Raindow Pattern Loop: Clearing matrix");
         matrix_clear(pattern);
         matrix_render(pattern);
-        ws2811_render(pattern->ledstring);
+        render(pattern);
     }
 
     log_info("Rainbow Pattern Loop: now stopped");

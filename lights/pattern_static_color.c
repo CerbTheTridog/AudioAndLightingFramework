@@ -97,9 +97,9 @@ static_color_run(void *vargp)
                 }
                 newColor = false;
             }
-            if ((ret = ws2811_render(pattern->ledstring)) != WS2811_SUCCESS)
+            if ((ret = render(pattern)) != WS2811_SUCCESS)
             {
-                log_error("ws2811_render failed: %s", ws2811_get_return_t_str(ret));
+                log_error("render failed: %s", ws2811_get_return_t_str(ret));
                 // XXX: This should cause some sort of fatal error to propogate upwards
                 break;
             }
@@ -174,7 +174,7 @@ static_color_kill(struct pattern *pattern)
         for (led = 0; led < led_count_ch2; led++) {
             pattern->ledstring->channel[1].leds[led] = 0;
         }
-        ws2811_render(pattern->ledstring);
+        render(pattern);
     }
 
     log_info("Static Color Pattern Loop: now stopped");

@@ -166,8 +166,8 @@ matrix_run2(void *vargp)
                 assert(i >= 0);
             }
 
-            if ((ret = ws2811_render(pattern->ledstring)) != WS2811_SUCCESS) {
-                log_error("ws2811_render failed: %s", ws2811_get_return_t_str(ret));
+            if ((ret = render(pattern)) != WS2811_SUCCESS) {
+                log_error("render failed: %s", ws2811_get_return_t_str(ret));
                 // xxx: this should cause some sort of fatal error to propogate upwards
                 break;
             }
@@ -224,8 +224,8 @@ pulse_clear(struct pattern *pattern)
         pattern->ledstring->channel[1].leds[i] = 0;
     }
 
-    if ((ret = ws2811_render(pattern->ledstring)) != WS2811_SUCCESS) {
-        log_error("ws2811_render failed: %s", ws2811_get_return_t_str(ret));
+    if ((ret = render(pattern)) != WS2811_SUCCESS) {
+        log_error("render failed: %s", ws2811_get_return_t_str(ret));
         // xxx: this should cause some sort of fatal error to propogate upwards
     }
     return ret;
