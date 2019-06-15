@@ -61,7 +61,7 @@
 int32_t gpio_pin = -1;
 uint32_t running = 1;
 struct comm_thread_params comm_thread_params;
-
+#define DEBUG_LOGGING
 static void ctrl_c_handler(int signum)
 {
     log_info("Control+C GET!");
@@ -247,9 +247,29 @@ stamp_to_led(struct comm_thread_params *params, ws2811_t *ledstring)
     uint32_t channel = ledstring->channel[0].gpionum == GPIO_PIN_ONE ? 0 : 1;
 
     while (i < len) {
-        ledstring->channel[channel].leds[i] = (*(params->displaying_array))[i];
+        switch ( (*(params->displaying_array))[i]) {
+            case 0:
+                ledstring->channel[channel].leds[i] = 0x000000;
+                break;
+            case 1:
+                ledstring->channel[channel].leds[i] = 0xff;
+               break;
+            case 2:
+                ledstring->channel[channel].leds[i] = 0xff00;
+                break;
+            case 3:
+                ledstring->channel[channel].leds[i] = 0xff0000;
+                break;
+            default:
+                printf("WTF IS THIS? %d\n", (*(params->displaying_array))[i]);
+                break;
+        }
         i++;
     }
+//    while (i < len) {
+//        ledstring->channel[channel].leds[i] = (*(params->displaying_array))[i];
+//        i++;
+//    }
 }
 
 static void
@@ -294,7 +314,7 @@ change_displaying_array(struct comm_thread_params *params)
 
 int main(int argc, char *argv[])
 {
-    log_set_level(LOG_TRACE);
+    log_set_level(LOG_FATAL);
     
     pthread_mutex_t recv_disp_ptr_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -357,10 +377,10 @@ int main(int argc, char *argv[])
             change_displaying_array(&comm_thread_params);
             pthread_mutex_unlock(comm_thread_params.recv_disp_ptr_lock);
 
-            //if (ws2811_render(ledstring) != WS2811_SUCCESS) {
-            //    log_error("ws2811_render failed: ");
-            //    exit(-1);
-            //}
+            if (ws2811_render(ledstring) != WS2811_SUCCESS) {
+                log_error("ws2811_render failed: ");
+                exit(-1);
+            }
             print_ledstring(ledstring);
 
 

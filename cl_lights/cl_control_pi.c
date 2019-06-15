@@ -236,11 +236,11 @@ void* accept_connections(int *com_sockets)
 	}
 	/* XXX: Should instead periodically check number of open connections and start loop again if needed */
 	printf("[ConnectionAccepter]: Reached MAX_ENTITIES, exiting accepter\n");
-	return;
+	return NULL;
 
 err_out:
 	printf("Connection accepter erroring out\n");
-	return;
+	return NULL;
 }
 
 
