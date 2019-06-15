@@ -380,9 +380,9 @@ int main(int argc, char *argv[])
         log_trace("XXX: display waiting\n");
         if (comm_thread_params.new_data) {
             comm_thread_params.new_data = false;
+
             pthread_mutex_lock(comm_thread_params.recv_disp_ptr_lock);
             print_disp_buf(&comm_thread_params);
-    
             stamp_to_led(&comm_thread_params, ledstring);
             change_displaying_array(&comm_thread_params);
             pthread_mutex_unlock(comm_thread_params.recv_disp_ptr_lock);
@@ -392,10 +392,8 @@ int main(int argc, char *argv[])
                 exit(-1);
             }
             print_ledstring(ledstring);
-
-
         }
-        sleep(2);
+        //sleep(2);
     }
     log_info("Pi Controller is now stopping");
     end_net_comm(&comm_thread_params);

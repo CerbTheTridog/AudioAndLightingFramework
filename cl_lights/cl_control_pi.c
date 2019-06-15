@@ -97,7 +97,7 @@ static void
 print_send_buf(struct display_pi *pi) {
     int i = 0;
     int len = LED_ARRAY_LEN;
-    printf ("led array: |");
+    printf ("sent led array to pi %d: |", pi->index);
     while (i < len) {
         printf("%u,", (pi->sending_array)[i]);
         i++;
@@ -288,10 +288,11 @@ run_color_calc(struct display_pi *pi_list)
 			/* Clear the entire strip except for the one LED we want on */
 			memset((void *)recording_array, 0, (sizeof(uint32_t) * LED_ARRAY_LEN));
 			recording_array[(cur_led)] = color;
-			cur_led ++;
+
 			print_rec_buf(pi);
 			change_record_buf(pi);
 		}
+			cur_led ++;
 		usleep(COLOR_GEN_DELAY);
 	}
 
