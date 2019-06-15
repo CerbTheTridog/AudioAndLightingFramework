@@ -6,7 +6,7 @@
 #define CONTROL_PI_ACC_PORT 15556
 #define LED_ARRAY_LEN 5
 #define COLOR_GEN_DELAY 300000 /* microseconds */
-#define SEND_DELAY 400000 /* microseconds */
+#define SEND_DELAY 40000 /* microseconds */
 #define UINT32_FULL_RED 255
 #define UINT32_FULL_GREEN 255
 #define UINT32_FULL_BLUE 255
